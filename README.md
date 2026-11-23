@@ -40,6 +40,7 @@ npm run dev              # servidor en :3000 y web en http://localhost:5173
 
 ```
 packages/shared   reglas del juego, fórmulas y contratos (cliente y servidor)
+packages/engine   simulación de la partida: mapa, rutas, tick, pausa, vista por jugador
 apps/server       Fastify + Socket.IO + Drizzle (PostgreSQL)
 apps/web          React + Vite
 deploy/           systemd, Caddy, Nginx, cloudflared y scripts de instalación y copias

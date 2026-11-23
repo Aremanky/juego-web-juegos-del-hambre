@@ -7,6 +7,7 @@ import '@fontsource/cinzel/700.css';
 import '@fontsource-variable/archivo/wdth.css';
 import './styles/app.css';
 import './styles/pages.css';
+import './styles/match.css';
 import { queryClient } from './lib/queries';
 import { Empty, Toasts } from './components/ui';
 import { AppShell } from './components/AppShell';

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { ChatMessageDTO, LobbyState } from '@ceniza/shared';
 import { emitAck, getSocket, onSocketConnect, SocketFailure } from '../lib/socket';
 import { toast } from './toast';
+import { useMatch } from './match';
 
 type Status = 'idle' | 'joining' | 'joined' | 'error' | 'kicked' | 'closed';
 
@@ -26,6 +27,8 @@ export const useLobby = create<LobbyStore>((set, get) => {
     if (wired) return;
     wired = true;
     const s = getSocket();
+    // La partida se engancha a la vez que el lobby: su instantánea llega justo al entrar en la sala.
+    useMatch.getState().wire();
     s.on('lobby:state', (st) => {
       const cur = get().state;
       if (!cur || cur.room.id !== st.room.id || st.version >= cur.version) set({ state: st });

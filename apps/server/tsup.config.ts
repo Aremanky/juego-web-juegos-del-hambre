@@ -10,5 +10,5 @@ export default defineConfig({
   sourcemap: true,
   splitting: false,
   // El paquete compartido es TS fuente: se incluye en el bundle. El resto de dependencias se instalan en la VM.
-  noExternal: ['@ceniza/shared'],
+  noExternal: ['@ceniza/shared', '@ceniza/engine'],
 });

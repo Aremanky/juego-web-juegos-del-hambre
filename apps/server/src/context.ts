@@ -8,6 +8,7 @@ import { PhotoService } from './modules/photos/service';
 import { TemplateService } from './modules/characters/service';
 import { RoomRepository } from './modules/rooms/repository';
 import { RoomManager } from './modules/rooms/manager';
+import { MatchRepository } from './modules/matches/repository';
 import { ChatService } from './modules/chat/service';
 import { makeRoomIO, type AppServer } from './realtime/io';
 
@@ -51,6 +52,6 @@ export function createContext(config: AppConfig, log: FastifyBaseLogger): AppCon
     chat,
     io: null,
   } as Omit<AppContext, 'roomManager'> as AppContext;
-  ctx.roomManager = new RoomManager({ repo: rooms, templates, photos, chat, io: makeRoomIO(() => ctx.io), log });
+  ctx.roomManager = new RoomManager({ repo: rooms, matches: new MatchRepository(db), timings: config.matchTimings, templates, photos, chat, io: makeRoomIO(() => ctx.io), log });
   return ctx;
 }

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { bigserial, boolean, index, integer, jsonb, pgTable, smallint, text, timestamp, uniqueIndex, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { BotSettings, Character, Crop, RoomConfig } from '@ceniza/shared';
+import type { WorldJSON } from '@ceniza/engine';
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -133,4 +134,66 @@ export const chatMessages = pgTable(
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [index('chat_channel_room_idx').on(t.channel, t.roomId, t.id)],
+);
+
+// ─────────────────────────── partidas (fase 4) ───────────────────────────
+export const matches = pgTable(
+  'matches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+    seed: text('seed').notNull(),
+    status: text('status').$type<'presentacion' | 'cuenta_atras' | 'en_curso' | 'terminada'>().notNull(),
+    config: jsonb('config').$type<RoomConfig>().notNull(),
+    /** Instantánea completa del mundo (PRNG incluido) para recuperar la partida tras un reinicio. */
+    snapshot: jsonb('snapshot').$type<WorldJSON>().notNull(),
+    snapshotAt: ts('snapshot_at').notNull().defaultNow(),
+    startedAt: ts('started_at').notNull().defaultNow(),
+    endedAt: ts('ended_at'),
+    winnerParticipantId: uuid('winner_participant_id'),
+  },
+  (t) => [
+    index('matches_room_idx').on(t.roomId),
+    // Una sola partida viva por sala.
+    uniqueIndex('matches_active_uq').on(t.roomId).where(sql`status <> 'terminada'`),
+  ],
+);
+
+export const matchParticipants = pgTable(
+  'match_participants',
+  {
+    matchId: uuid('match_id')
+      .notNull()
+      .references(() => matches.id, { onDelete: 'cascade' }),
+    participantId: uuid('participant_id')
+      .notNull()
+      .references(() => roomParticipants.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<'human' | 'bot'>().notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    character: jsonb('character').$type<Character>().notNull(),
+    district: smallint('district').notNull(),
+    gender: text('gender').$type<'M' | 'F'>().notNull(),
+    place: smallint('place'),
+    cause: text('cause').$type<'abandono' | 'desconexion' | null>(),
+    eliminatedAtMs: integer('eliminated_at_ms'),
+  },
+  (t) => [uniqueIndex('mp_pk').on(t.matchId, t.participantId), index('mp_user_idx').on(t.userId)],
+);
+
+export const matchEvents = pgTable(
+  'match_events',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    matchId: uuid('match_id')
+      .notNull()
+      .references(() => matches.id, { onDelete: 'cascade' }),
+    tick: integer('tick').notNull(),
+    t: integer('t').notNull(),
+    type: text('type').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('me_match_idx').on(t.matchId, t.id)],
 );
