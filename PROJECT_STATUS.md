@@ -1,19 +1,19 @@
 # PROJECT_STATUS — Los Juegos de la Ceniza
 
-**Versión:** 0.5.1 · **Última actualización:** 23/11/2026 (sesión 3: fase 5 y cierre de la fase 4) · **Avance global: ~54 %**
+**Versión:** 0.6.0 · **Última actualización:** 24/11/2026 (sesión 3: fases 4, 5, 6 y 7) · **Avance global: ~66 %**
 
 El proyecto es ejecutable: se puede registrar, guardar fotos y personajes, crear salas, invitar por código o
-enlace, preparar la partida con amigos y bots y **jugarla en tiempo real**: presentación, cuenta atrás, mapa por
-semilla, movimiento, pausa por votación, desconexiones con piloto automático y recuperación tras reiniciar el
-servidor.
+enlace, preparar la partida con amigos y bots y **jugarla en tiempo real**.
 
-Con la fase 5, las estadísticas ya mandan:
-- Cada distrito se mueve distinto por cada terreno, y la visión cambia con el terreno que se pisa.
-- El editor explica de dónde sale cada cifra y lleva una prueba de fuerza que enfrenta tu build a los ocho
-  arquetipos.
-- Hay un motor de combate por rondas y un simulador de equilibrio.
+Desde la 0.6:
+- **La arena es la completa:** ríos, caminos, pantanos, ruinas, poblados, cuevas y manantiales con nombre. Hay
+  regiones que se descubren al llegar y un ciclo de día y noche que cambia lo que se ve.
+- **El mapa es el ilustrado:** relieve sombreado, curvas de nivel y modo holograma.
+- **En el mapa ya no va la foto:** cada participante es un personaje animado.
+- **Los bots piensan:** van al Obelisco o se apartan según su carácter, exploran, acechan a quien creen poder
+  vencer y huyen de quien les supera. Ven lo mismo que vería un humano.
 
-Todavía no hay combate en la partida, ni recursos ni eventos (fases 7–9).
+Todavía no hay combate en la partida, ni recursos ni eventos (fases 8–9).
 
 Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Aremanky/juego-web-juegos-del-hambre).
 
@@ -26,199 +26,159 @@ Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Ar
 | 3 | Usuarios, salas, lobby, personajes, fotos persistentes | 11 % | **100 %** | ██████████ |
 | 4 | Motor multijugador y sincronización de partida | 11 % | **100 %** | ██████████ |
 | 5 | Estadísticas, habilidades y reparto de puntos | 6 % | **100 %** | ██████████ |
-| 6 | Bots autónomos (IA en el servidor y en la GPU del anfitrión) | 11 % | 35 % | ███▌░░░░░░ |
-| 7 | Mapa ilustrado, **personajes animados**, movimiento y exploración | 14 % | 20 % | ██░░░░░░░░ |
+| 6 | Bots autónomos (IA en el servidor y en la GPU del anfitrión) | 11 % | **70 %** | ███████░░░ |
+| 7 | Mapa ilustrado, personajes animados, movimiento y exploración | 14 % | **75 %** | ███████▌░░ |
 | 8 | Recursos, combates, alianzas y traiciones | 11 % | 15 % | █▌░░░░░░░░ |
 | 9 | Eventos dinámicos y progresión | 6 % | 5 % | ▌░░░░░░░░░ |
-| 10 | Interfaz completa, **personalización amplia y personaje desde foto** | 13 % | 35 % | ███▌░░░░░░ |
-| 11 | Pruebas completas, optimización y errores | 4 % | 45 % | ████▌░░░░░ |
+| 10 | Interfaz completa, personalización amplia y personaje desde foto | 13 % | 35 % | ███▌░░░░░░ |
+| 11 | Pruebas completas, optimización y errores | 4 % | 50 % | █████░░░░░ |
 | 12 | Despliegue definitivo en Proxmox | 3 % | 60 % | ██████░░░░ |
 
-**Por qué el avance global sube poco (del 52 % al 54 % en esta sesión).** Se ha ampliado el alcance:
-- Personajes animados en el mapa en lugar de la foto (fase 7).
-- Un sistema de personalización muy amplio y crear el personaje desde una foto, generando las piezas que
-  falten (fase 10).
-- Usar la GPU del anfitrión de la sala para lo pesado (fases 6, 7 y 10).
-
-Los pesos se han recalculado con ese alcance (antes F7 12 % y F10 8 %; ahora 14 % y 13 %). Completar la fase 5
-compensa casi todo lo que crecen las fases 7 y 10; el cierre de la fase 4 y la prueba de carga suman algo más de un punto.
+Los pesos se recalcularon en esta sesión al ampliar el alcance de las fases 7 y 10 (personajes animados,
+personalización amplia, personaje desde foto y GPU del anfitrión).
 
 Notas de reparto:
-- **F4 (100 %)**: cerrada con el sobrevuelo de la arena en la presentación y la prueba de carga con 24 participantes
-  (resultados abajo y en `docs/LOAD.md`).
-- **F5 (100 %)**: todo lo que la fase promete:
-  - atributos con efecto real y desglose comprobado;
-  - efectos según la situación y ventajas de distrito aplicadas al movimiento y a la visión de la partida;
-  - reglas de combate, detección y huida listas en el motor;
-  - simulador de equilibrio con el criterio del GDD cumplido;
-  - prueba de fuerza en el editor.
+- **F6 (70 %)**: hecho lo que la fase puede hacer sin los sistemas de la 8:
+  - utility AI con personalidad y dificultad;
+  - percepción igual a la de un humano y memoria que se olvida;
+  - estimación de combates con el motor real;
+  - las decisiones de la arena actual;
+  - piloto automático para desconectados.
   
-  Conectar el combate y las actividades al mundo es trabajo de las fases 7–8 y cuenta allí.
-- **F6 (35 %)**: incorporación desde el lobby completa, piloto provisional que camina por la arena y política de
-  combate de los bots (huida, defensa, emboscada) ya en el motor. Falta la utility AI, la memoria y la
-  percepción con `computeView`, y la parte opcional en la GPU del anfitrión (diálogo, dificultad Experto).
-- **F7 (20 %)**: mapa por semilla, A* con coste por personaje, movimiento interpolado y niebla con visión por
-  terreno. Falta el mapa ilustrado con PixiJS, ríos, caminos, puntos de interés y los personajes animados con
-  esqueleto 2D y todas sus animaciones.
-- **F8 (15 %)**: combate por rondas, armas, protecciones, detección de ocultos, huida y tregua hechos y probados
-  como reglas. Falta llevarlos a la partida con recursos, inventario, fabricación, alianzas y traiciones.
-- **F10 (35 %)**: faltan las pantallas de partida, el editor de apariencia grande y la creación desde foto con
-  generación de piezas.
+  Falta comer, beber, fabricar, aliarse, atacar y traicionar (llegan con esos sistemas en la fase 8) y las
+  frases de los bots. La parte con modelos en la GPU del anfitrión (chat con lenguaje, red para Experto) es
+  opcional: la IA actual cuesta 1 ms por tick en el servidor y no necesita GPU.
+- **F7 (75 %)**: generador completo, regiones y exploración, día y noche con efecto en la visión, mapa
+  ilustrado, holograma y personajes animados con las animaciones de moverse. Faltan las animaciones y estados
+  de acciones que aún no existen (atacar, buscar, fabricar, herido, envenenado), los cambios del mapa por
+  eventos (fase 9) y, si hiciera falta en móviles, pasar el dibujo a PixiJS.
 
 ## Funcionalidades completadas (probadas)
 
-**Cuentas y sesiones**
-- Registro e inicio de sesión; el primer usuario es administrador.
-- Sesión recordada 30 días en el mismo navegador (cookie HttpOnly con renovación deslizante).
-- Cerrar sesión, cerrar todas las sesiones, cambiar nombre y contraseña (cierra las demás sesiones).
-- Código de registro opcional para servidores públicos.
-
-**Biblioteca de fotografías (en el servidor)**
-- Subida desde móvil u ordenador con normalización en el navegador (orientación EXIF; HEIC si el navegador lo abre).
-- Recorte circular no destructivo: el original se conserva y se puede reajustar cuando quieras.
-- Versiones generadas: retrato 512 px, versión pequeña de 160 px y miniatura.
-- Nombre, etiquetas, foto predeterminada, borrado y límite por usuario.
-- Validación real del archivo, límites de tamaño y de píxeles, archivos solo para usuarios autenticados, caché inmutable.
-
-**Personajes**
-- Sistema de 7 atributos con coste creciente, presupuesto 24/28/32 y +2 con defecto.
-- 16 habilidades con requisitos, 10 rasgos (ventaja y contrapartida), 7 defectos, 12 distritos con ventaja propia.
-- 8 arquetipos rápidos; comparación con arquetipos o personajes guardados (radar y estadísticas derivadas).
-- Identidad: nombre, epíteto, género, distrito preferido, color, marco, retrato, foto de victoria y presentación.
-- Estrategia de piloto automático (combate, umbral de huida, alianzas).
-- Plantillas guardadas en el servidor, reutilizables entre sesiones y dispositivos (crear, editar, duplicar, borrar).
+**Cuentas, fotos y personajes**
+- Registro e inicio de sesión, sesión recordada 30 días, cierre de sesiones, cambio de nombre y contraseña,
+  código de registro opcional; el primer usuario es administrador.
+- Biblioteca de fotos en el servidor: subida con normalización, recorte circular no destructivo, versiones de
+  512 y 160 px, miniatura, etiquetas, predeterminada, borrado y límites.
+- Personajes: 7 atributos con coste creciente, 16 habilidades, 10 rasgos, 7 defectos, 12 distritos,
+  8 arquetipos, identidad, estrategia de piloto automático y plantillas reutilizables.
 
 **Estadísticas en juego (fase 5)**
-- **Desglose en el editor:** al pulsar una estadística se ve la fórmula, el valor de los atributos y lo que suma
-  o multiplica el distrito, cada habilidad, el rasgo y el defecto.
-- **Efectos según la situación** de cada build, listados en el editor:
-  - terreno, noche y salud baja;
-  - escondido, trepando o a la carrera;
-  - primer ataque y tipo de arma;
-  - actividades como pescar o recoger madera.
-- **En la partida:** el distrito VII cruza el bosque un 12 % más rápido, el X no se frena en la roca y el IV nada
-  sin penalización. El bosque denso recorta la visión (×0,7) y la cumbre la amplía (×1,3). La niebla de guerra lo
-  respeta.
-- **Motor de combate por rondas:**
-  - distancia, iniciativa, acierto, crítico, esquiva, defensa, aturdimiento y emboscada;
-  - Golpe brutal, Último aliento, Contraataque y Carrera;
-  - huida según el GDD y tregua solo si los dos la eligen;
-  - catálogo de armas y protecciones;
-  - detección de ocultos por sigilo, cobertura y distancia.
-- **Simulador de equilibrio** (`npm run balance` → `docs/BALANCE.md`): los ocho arquetipos por parejas en cinco
-  escenarios. Todos quedan entre ×0,84 y ×1,16 de la media (el GDD exige ×0,5–×1,5) y cada estilo tiene su
-  escenario fuerte. Los ajustes que ha pedido están anotados en el GDD §16.
-- **Prueba de fuerza en el editor:** tu build contra los ocho arquetipos en los cinco escenarios, con media, mejor y
-  peor situación y rival más duro. Se recalcula sola en un worker al repartir puntos, también en móvil.
-- Números en formato español en todo el editor (1,32 c/s, ×1,15, 79 %).
+- Desglose de cada estadística en el editor y efectos según la situación de cada build.
+- Ventajas de distrito por terreno en el movimiento y visión según el terreno, de día y de noche.
+- Motor de combate por rondas, catálogo de armas y protecciones, detección de ocultos.
+- Simulador de equilibrio (`npm run balance`): arquetipos entre ×0,84 y ×1,16 de la media.
+- Prueba de fuerza en el editor, en un worker. Números en formato español.
 
-**Salas y lobby en tiempo real**
-- Crear sala con configuración completa (incluida duración ilimitada); unirse por código o por enlace `/r/CÓDIGO`.
-- Tablero de distritos (12 × 2 plazas) con unicidad garantizada en memoria y en BD, también ante peticiones simultáneas.
-- «+ AÑADIR BOT» para cualquier participante; límites total y por persona; edición por cualquiera; prioridad humana.
-- Anfitrión: configurar, expulsar, ceder el puesto; traspaso automático si se desconecta.
-- Reconexión automática, varios dispositivos por usuario, persistencia y recuperación tras reiniciar el servidor.
-- Chat global y de sala, con historial. La build de cada humano es secreta para los demás.
+**Salas, lobby y partida (fases 3 y 4)**
+- Salas con configuración completa, código o enlace, tablero de 12 × 2 plazas, bots que añade cualquiera,
+  anfitrión, reconexión, varios dispositivos, chat y recuperación tras reiniciar.
+- Inicio automático o forzado, sobrevuelo de la arena, presentación y cuenta atrás.
+- Mover con un toque, niebla de guerra opcional, pausa por votación y políticas de desconexión.
+- Abandono, clasificación, ganador, instantáneas cada 10 s y recuperación en pausa.
+- Probada con 24 humanos: tick p95 de 1,9 ms y 6,8 KB/s por jugador (`docs/LOAD.md`).
 
-**Partida en tiempo real (fase 4)**
-- Inicio automático cuando todos están preparados y conectados (cuenta atrás de 5 s que se cancela si alguien se
-  desprepara) o **inicio forzado** por el anfitrión. A quien no eligió plaza se le asigna una libre de su género.
-- Presentación de los participantes con sus camafeos o fotos y cuenta atrás de 15 s en el anillo del Obelisco.
-- Mapa por semilla (64², 96² o 128²) con lagos, orillas, praderas, bosque, roca, montaña, cumbres y la explanada.
-- Mover con un toque: ruta con el coste de terreno de tu personaje y su velocidad, interpolada sin saltos.
-- Niebla de guerra opcional; pausa por votación; desconexión con piloto, a cubierto o eliminación.
-- Abandonar, clasificación por orden de caída, ganador y pantalla de resultados.
-- Instantáneas cada 10 s y al apagar: tras un reinicio la partida vuelve en pausa con el mismo mundo.
-- **Sobrevuelo de la arena** al empezar: vista general, una vuelta en espiral sobre el mapa y descenso hasta tu sitio en el
-  anillo; después, los Elegidos. Se corta si tocas el mapa y no se anima si el sistema pide menos movimiento.
-- **Probada con 24 participantes** (sala llena, mapa grande, niebla, órdenes cada 1–2 s): tick p95 de 1,9 ms de los
-  100 disponibles, respuesta a una orden p95 de 4 ms y unos 7 KB/s por jugador. La prueba encontró que cada orden
-  forzaba un fotograma a todos los jugadores; ahora solo lo recibe a quien le cambia algo (de 18,6 a 8,5 fotogramas/s
-  por jugador).
+**Bots con IA (fase 6)**
+- Deciden entre ir al Obelisco al empezar, explorar la región sin descubrir más cercana, acechar a quien
+  creen poder vencer, huir hacia cobertura de quien les supera, esconderse y esperar.
+- Personalidad (agresivo, cauteloso, explorador…) y dificultad: ruido en la decisión, cada cuánto piensan,
+  cuánto recuerdan y lo bien que estiman un combate (de 4 a 30 simulaciones, con terreno en Difícil y
+  Experto).
+- Juego limpio: perciben lo mismo que un humano en su asiento (visión por terreno y noche, niebla) y solo
+  recuerdan lo que han visto.
+- Usan las mismas órdenes que un humano, validadas igual.
+- El piloto automático de un humano desconectado usa la misma IA con su estrategia. Con «a cubierto», solo
+  busca dónde esconderse.
+- Coste medido con 23 bots en el mapa grande: 1 ms de media por tick, p95 5 ms.
 
-**Interfaz**
-- Identidad visual propia («Ceniza y cristal») en todas las pantallas, incluidas la partida y la prueba de fuerza.
-- Dos revisiones anti-IA con **unslop-ui**, **Impeccable**, **Taste Skill** y **create-game-assets**.
+**Arena completa (fase 7)**
+- Generador por semilla con relieve, lagos, pantanos, 2–3 ríos que bajan de manantiales de montaña,
+  6–10 puntos de interés con nombre y caminos desde la explanada, con vados en los ríos.
+- Regiones con el nombre de su punto de interés. Al entrar en una se descubre: aparece su nombre en tu mapa y
+  «Has llegado a…» solo te lo dice a ti. El panel lleva la cuenta de lo descubierto.
+- Día y noche por ritmo de sala (8 + 4 min en Estándar): de noche se ve menos (×0,6 con las ventajas de cada
+  personaje), el mapa se oscurece y un reloj indica cuánto falta para el cambio.
+- Mapa ilustrado horneado una vez:
+  - relieve sombreado y curvas de nivel;
+  - árboles, rocas, cumbres nevadas y pantanos;
+  - ríos y caminos continuos, ruinas y poblados;
+  - iconos y rótulos de los lugares conocidos.
+  
+  El botón «Holograma» cambia a curvas turquesas con la retícula de sectores A–L por 1–12.
+- Personajes animados en lugar de la foto:
+  - esqueleto de piezas con vistas de frente, espalda y lado;
+  - reposo, andar, correr, nadar, agacharse en la maleza, caído y celebración;
+  - anillo del color del jugador, punteado si va con piloto automático;
+  - peinado del camafeo, ropa del color del jugador y ribete del distrito.
+- 55 fps con todo el mapa y los personajes en el Chrome sin GPU de las pruebas.
 
-**Infraestructura**
-- Monorepo (shared, engine, server, web), migraciones automáticas, modo producción con el frontend servido por Node.
-- systemd con endurecimiento, health check con reinicio, copias diarias con rotación, restauración,
-  actualizaciones con vuelta atrás automática, Caddy, Nginx y cloudflared.
+**Interfaz e infraestructura**
+- Identidad visual «Ceniza y cristal» en todas las pantallas; revisiones anti-IA sin señales.
+- Monorepo (shared, engine, server, web), systemd, copias, actualizaciones con vuelta atrás, Caddy, Nginx y
+  cloudflared.
 
 ## Pruebas ejecutadas (resultado real, última ejecución)
 
 | Suite | Resultado | Cubre |
 |---|---|---|
-| Unitarias (`packages/shared`) | **23/23 ✔** | Costes, arquetipos, atributos con efecto real, defectos y rasgos, validación, fábrica de bots, RNG, configuración, códigos; y de la fase 5: efectos que apuntan a orígenes que existen, coste de terreno solo donde el distrito lo promete, visión por terreno y altura, noche y salud baja, tope de precisión, desglose idéntico al motor con builds al azar |
-| Motor (`packages/engine`) | **35/35 ✔** | Las 18 de la fase 4 más 17 nuevas. Combate determinista, acercarse antes de golpear, esquiva, sorpresa, Último aliento, Golpe brutal, huida, tregua, detección, equilibrio dentro de ×0,5–×1,5, cada estilo con su terreno, prueba de fuerza. Y en partida: tabla de terrenos compartida, distrito VII en el bosque, distrito X en la roca, visión por terreno con niebla, partidas de la 0.4 recuperadas |
-| Integración (`apps/server`, PostgreSQL real) | **44/44 ✔** | Cuentas, fotos, plantillas, lobby y partida (inicio, movimiento, pausa, reconexión, reinicio a mitad de partida, abandono) y la prueba de carga |
-| Carga (`npm run load`, 30 s) | **✔** | 24 humanos en mapa grande con niebla, 489 órdenes sin rechazos. Tick p50/p95/máx. 0,19/1,91/11,9 ms; respuesta p95 4 ms; bucle de eventos p99 11,5 ms; 6,8 KB/s por jugador (máx. 9,7); al final, cada cliente ve exactamente lo que el servidor calcula para él |
-| Extremo a extremo (Chrome real) | **1/1 ✔** | Dos usuarios (escritorio + móvil) del registro a la partida, con el desglose de estadísticas, la prueba de fuerza en escritorio y en móvil y el sobrevuelo de la arena |
-| Compilación y tipos | ✔ | `tsc` en los 4 paquetes, build de servidor y web (con el worker de la prueba de fuerza) |
+| Unitarias (`packages/shared`) | **23/23 ✔** | Reglas de personaje, efectos según la situación, desglose idéntico al motor |
+| Motor (`packages/engine`) | **46/46 ✔** | Las 35 anteriores más 11 nuevas. Del generador: determinista, ríos, caminos hasta cada poblado y ruina, nombres únicos, anillo de salida limpio, instantánea con relieve y compatibilidad con la 0.5. Del día y la noche: ciclo, visión nocturna con niebla y avisos. De la exploración: región descubierta solo para quien entra. De la IA: bots que se mueven solos y determinismo, el agresivo al Obelisco y el cauteloso apartándose, huida y acecho, niebla y olvido del Fácil, y 23 bots por debajo de 5 ms por tick |
+| Integración (`apps/server`, PostgreSQL real) | **47/47 ✔** | Todo lo anterior más la arena con bots: instantánea con relieve, lugares y ciclo, bots moviéndose con la IA del servidor, aviso de región privado y noche para todos |
+| Carga (`npm run load`, 30 s) | **✔** | 24 humanos, mapa grande con niebla: tick p95 1,9 ms, respuesta p95 4 ms, 6,8 KB/s por jugador |
+| Extremo a extremo (Chrome real) | **1/1 ✔** | Del registro a la partida en escritorio y móvil, ahora con el mapa ilustrado, los personajes, el reloj de día, el holograma, la noche y una medida de 55 fps |
+| Compilación y tipos | ✔ | `tsc` en los 4 paquetes, build de servidor y web |
 | Diseño (unslop-ui y detector de Impeccable) | **0 señales** | Sobre todas las pantallas |
-| Producción | ✔ | Health, SPA y rutas internas, CSP, caché inmutable en los archivos con hash |
-| Despliegue (simulado sin systemd) | ✔ | Usuario de servicio, `.env` con clave aleatoria, compilación, migraciones, health check, copia y restauración |
+| Producción | ✔ | Health 0.6.0, SPA y rutas internas, CSP, caché inmutable |
 
 ## Skills y plugins instalados para el desarrollo
 
 | Skill o plugin | Para qué se usa |
 |---|---|
 | Impeccable, unslop-ui, Taste Skill | Diseño de la interfaz y detección de señales de IA |
-| pixijs-skills (oficial de PixiJS) | Mapa ilustrado y personajes animados con PixiJS v8 (fase 7) |
-| gamedev-agent-skills (8 skills) | IA de bots (fase 6), generación procedural y botín (fases 7–8), supervivencia y fabricación (fase 8), HUD, sensación de juego y cámara (fase 10), arte y personajes coherentes |
-| transformers-js (oficial de Hugging Face) | Modelos en la GPU del navegador: personaje desde foto, retrato y modelos de bots en el anfitrión |
-| anthropic-art-skills | Arte generativo con código (texturas, carteles, imagen para compartir salas) |
+| pixijs-skills (oficial de PixiJS) | Si el mapa pasa a PixiJS en móviles (de momento basta canvas 2D) |
+| gamedev-agent-skills (8 skills) | Utility AI de los bots (fase 6), generación procedural, supervivencia, HUD y arte coherente |
+| transformers-js (oficial de Hugging Face) | Modelos en la GPU del navegador: personaje desde foto y modelos de bots en el anfitrión |
+| anthropic-art-skills | Arte generativo con código |
 | openai-develop-web-game | Ciclo de pruebas con Playwright para el bucle de partida |
 | Context Compactor, Concise Intuitive Answers | Gastar menos contexto en sesiones largas sin perder precisión |
 
 ## Funcionalidades pendientes
 
-- **Fase 6:**
-  - IA de bots con utility AI en el servidor: memoria y percepción idéntica a la de un humano.
-  - Lo que necesite GPU en **la GPU del anfitrión de la sala**: modelo de lenguaje para el chat de los bots y
-    red de decisión para Experto. Si no hay GPU, se vuelve a la IA del servidor.
-- **Fase 7:**
-  - Mapa ilustrado con PixiJS (relieve, ríos, caminos, rótulos, modo holograma), día y noche, exploración.
-  - **Personajes animados en lugar de la foto:** esqueleto 2D, cinco direcciones dibujadas, todas las
-    animaciones del GDD §5.9 y estados visibles.
-  - Pasos de generación con GPU en el anfitrión.
-- **Fase 8:** llevar el combate y la detección a la partida, más recursos, inventario, fabricación, alianzas y
-  traiciones.
+- **Fase 6:** frases de los bots y, opcional, modelos en la GPU del anfitrión. El resto de decisiones llega con
+  la fase 8.
+- **Fase 7:** animaciones y estados de las acciones de la fase 8, cambios del mapa por eventos (fase 9) y PixiJS
+  si hiciera falta en móviles reales.
+- **Fase 8:** combate en la partida, medidores de supervivencia, recursos, inventario, fabricación, alianzas y
+  traiciones, y que los bots los usen.
 - **Fase 9:** eventos dinámicos y Director, zona segura y progresión.
-- **Fase 10:**
-  - Pantallas de partida, historial, logros y administración.
-  - **Editor de apariencia amplio:** cuerpo, piel, cara, pelo, marcas, ropa por distrito, accesorios y poses.
-  - **Crear el personaje desde una foto:** análisis en la GPU del jugador, asignación al catálogo y generación
-    de las piezas que no existan, con control automático y guardado como «pieza generada».
+- **Fase 10:** pantallas de partida, historial, logros, administración, editor de apariencia amplio y creación
+  del personaje desde una foto con generación de piezas.
 - **Fase 12:** validar en tu VM real (systemd, ufw, túnel de Cloudflare con tu dominio).
 
 ## Errores y limitaciones conocidas
 
-- El mapa de la partida es provisional: canvas 2D con biomas simples y un círculo con el retrato. La foto deja el
-  mapa en la fase 7, cuando lleguen los personajes animados.
-- Los bots y los desconectados en piloto solo deambulan; la IA de verdad es la fase 6.
-- Sin combate en la partida todavía (las reglas ya existen en el motor): una partida solo termina por abandonos o
-  desconexiones con la regla «eliminar».
-- El simulador mide encuentros entre dos (o tres, con testigo), no partidas completas; eso llegará con los bots
-  de la fase 6.
-- La prueba de fuerza tiene un margen de ±5 puntos en cada casilla (80 combates) y de ±2 en las medias.
-- El chat de sala durante la partida solo funciona con «Chat durante la partida: Todos» (las alianzas son fase 8).
+- Sin combate en la partida todavía: los bots acechan y huyen, pero nadie ataca. Una partida solo termina por
+  abandonos o desconexiones con la regla «eliminar».
+- Los personajes animados se dibujan en el cliente con piezas vectoriales; el editor de apariencia (fase 10)
+  los hará personalizables.
+- La IA tiene un pico de unos 60 ms en los primeros ticks de la partida, cuando todos se ven en el anillo.
+  Después va en 1 ms de media.
+- La prueba de fuerza tiene un margen de ±5 puntos en cada casilla y de ±2 en las medias.
+- El chat de sala durante la partida solo funciona con «Chat durante la partida: Todos».
 - Las fotos HEIC dependen de que el navegador las abra (Safari sí; Chrome en Windows no, y avisa).
-- El paquete JavaScript ocupa 667 KB (206 KB comprimido), más 124 KB del worker que solo se carga al abrir la
-  prueba de fuerza. Se dividirá en trozos cuando llegue PixiJS.
 - No hay panel de administración web todavía; existe `npm run admin:promote`.
-- Las unidades systemd, ufw y Caddy no se han podido ejecutar aquí (el entorno no tiene systemd). Ver `docs/DEPLOYMENT.md` §9.
+- systemd, ufw y Caddy no se han podido ejecutar aquí (el entorno no tiene systemd). Ver `docs/DEPLOYMENT.md` §9.
 
 ## Próximos pasos (sesión 4)
 
-1. **Fase 7:** mapa ilustrado con PixiJS v8 sobre el mismo mundo y **personajes animados** con esqueleto 2D
-   (primera tanda de piezas y animaciones de andar, correr y reposo), sustituyendo los círculos con foto.
-2. **Fase 6:** utility AI sobre `computeView` y la política de combate del motor; reparto de trabajos a la GPU del
-   anfitrión con vuelta a la CPU del servidor.
-3. **Fase 8 (inicio):** medidores de supervivencia, búsqueda de recursos con los efectos de actividad ya
-   definidos, e inventario.
+1. **Fase 8:** combate en la partida con el motor de la fase 5 (atacar, emboscar, huir), medidores de
+   supervivencia, búsqueda de recursos con los efectos de actividad ya definidos, inventario y fabricación;
+   los bots aprenden a usarlos.
+2. Animaciones de atacar, buscar y fabricar, y estados visibles en los personajes.
+3. **Fase 9:** el Director de eventos y la zona segura.
 
 ## Cómo continuar en la próxima sesión
 
-El código está en GitHub. `main` tiene la fase 4; la fase 5 llega por la rama `fase-5-estadisticas` (pull
-request #2) y el cierre de la fase 4 por `fase-4-cierre` (pull request #3, que va encima de la #2). Al empezar la próxima sesión basta con decir que siga desde el repositorio.
+El código está en GitHub. `main` tiene la fase 4. Las ramas van una encima de otra:
+`fase-5-estadisticas` (#2), `fase-4-cierre` (#3) y `fase-6-y-7` (#4). Fusiónalas en ese orden. Al empezar la
+próxima sesión basta con decir que siga desde el repositorio.

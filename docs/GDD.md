@@ -1,6 +1,6 @@
 # LOS JUEGOS DE LA CENIZA — Documento de Diseño (GDD)
 
-> Versión 1.1 (fase 5: equilibrio, personaje animado, personalización y GPU del anfitrión) · Fuente de
+> Versión 1.2 (fases 6 y 7: IA de bots, arena completa, día y noche, personajes animados) · Fuente de
 > verdad del diseño. Las cifras exactas viven en
 > `packages/shared/src/game/` (atributos, habilidades, rasgos, distritos…) y este documento
 > explica el *porqué*. Si una cifra cambia en el código tras pruebas de equilibrio, se anota aquí.
@@ -332,6 +332,10 @@ combate, resultados y perfil. También sirve para crear el personaje a su imagen
   aturdido, morir y celebrar. Se suman gestos sociales: saludar, señalar y proponer pacto.
 - Legible a 32–64 px de alto, con el color del jugador en la silueta y el nombre bajo los pies.
 - Los estados se ven en el personaje: herido, envenenado, agotado o escondido.
+- *Hecho en la 0.6:* esqueleto de piezas dibujado en el cliente, vistas de frente, espalda y lado (espejo
+  para el otro lado) y animaciones de reposo, andar, correr, nadar, agacharse en la maleza, caído y
+  celebración. El peinado sale del camafeo, la ropa del color del jugador y el ribete del distrito. Atacar,
+  buscar, fabricar, comer y los estados llegan con sus acciones en la fase 8.
 
 **Sistema de personalización (amplio).** La apariencia se guarda como un JSON compacto y versionado
 (piezas + parámetros). El servidor la valida y la usan igual personajes y bots: a un bot se le genera una
@@ -413,6 +417,13 @@ GPU (§17):
   Solo puede ser visual o comprobable: nada de lo que calcula el anfitrión decide el juego sin que el
   servidor lo valide.
 
+*Hecho en la 0.6:* relieve y humedad por ruido, lagos, pantanos, de 2 a 3 ríos desde manantiales de
+montaña, de 6 a 10 puntos de interés por muestreo con distancia mínima (ruinas, poblados, cuevas y los
+manantiales), con nombre propio, y caminos desde la explanada hasta poblados y ruinas (con vados en los
+ríos). Cada casilla pertenece a la región de su punto de interés más cercano; entrar en una región la
+descubre y su nombre aparece en tu mapa. Todo esto se hace en la CPU del servidor en milisegundos, así que
+de momento no hace falta la GPU del anfitrión para el mapa.
+
 ### 7.2 Biomas
 
 Los biomas que ya existen en la partida (pradera, orilla, bosque, bosque denso, roca, montaña, cumbre, lago y la
@@ -462,8 +473,9 @@ previsualizados. Capas: peligros, recursos conocidos, PDI, eventos. En el mapa s
 animados** (§5.9) con el color del jugador y movimiento interpolado suave; la foto solo aparece en la
 tarjeta y en la interfaz.
 
-*Estado en la 0.5:* el mapa provisional de la fase 4 aún dibuja un círculo con el retrato. Lo sustituyen
-los personajes animados en la fase 7.
+*Desde la 0.6* el mapa es el ilustrado: relieve sombreado, curvas de nivel, bosques, rocas, cumbres, ríos y
+caminos continuos, ruinas y poblados, con un botón para el modo holograma (curvas turquesas y retícula de
+sectores A–L por 1–12) y la noche oscureciendo la arena.
 
 ---
 
@@ -602,6 +614,13 @@ las **mismas intenciones** que un humano por la misma API validada.
   - Si el anfitrión se desconecta o no tiene GPU, los bots siguen con la utility AI del servidor y las
     frases plantilla. La partida nunca depende del dispositivo del anfitrión.
   - Ningún modelo del anfitrión recibe más información de la que vería el bot (`computeView`).
+- *Hecho en la 0.6:* utility AI en el servidor (consideraciones de 0 a 1 combinadas con compensación,
+  inercia y el ruido de su dificultad). Percibe lo mismo que un humano en su asiento (visión por terreno y
+  noche, niebla), recuerda lo visto y olvida según su dificultad, y estima cada combate con el motor real.
+  Decide entre ir al Obelisco al empezar, explorar regiones, acechar a quien cree poder vencer, huir de quien
+  le supera, esconderse y esperar. La misma IA lleva a los humanos desconectados en piloto automático, con
+  su estrategia. Con 23 bots en el mapa grande cuesta de media 1 ms por tick (p95 5 ms, de 100 disponibles):
+  no necesita GPU. Comer, beber, fabricar, aliarse, atacar y hablar llegan con la fase 8.
 
 | Personalidad | Agresión | Cautela | Sociab. | Lealtad | Codicia | Curiosidad | Paranoia | Azar |
 |---|---|---|---|---|---|---|---|---|
@@ -764,3 +783,4 @@ documentará la licencia de cada modelo (uso privado no comercial).
 | Next.js / SSR | No aporta a un juego SPA; Vite + Fastify es más simple |
 | Leaflet / mapas tipo app | Aspecto de app de mapas; PixiJS (WebGL) da sensación de juego, efectos y 60 fps en móvil |
 | Phaser | Demasiado framework para un mapa + UI React; PixiJS basta |
+| PixiJS en la fase 7 (aplazado) | El mapa ilustrado se hornea una vez y por fotograma solo se dibujan una imagen, los personajes y los rótulos: 55 fps en el Chrome sin GPU de las pruebas. Se cambiará el renderizador si en móviles reales hiciera falta, sin tocar motor ni protocolo |

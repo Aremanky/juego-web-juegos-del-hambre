@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import sharp from 'sharp';
 import { avatarSvg } from '../packages/shared/src/game/avatar';
@@ -179,6 +180,29 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await a.waitForTimeout(700);
   await shot(a, '14-partida-escritorio', false);
   await shot(b, '15-partida-movil');
+  await expect(a.getByText(/^Día 1\. Anochece en/)).toBeVisible();
+  // Fotogramas por segundo del mapa con todos los personajes animados (Chrome sin GPU de las pruebas).
+  const fps = await a.evaluate(
+    () =>
+      new Promise<number>((done) => {
+        let n = 0;
+        const t0 = performance.now();
+        const frame = () => {
+          n++;
+          if (performance.now() - t0 < 2000) requestAnimationFrame(frame);
+          else done(n / ((performance.now() - t0) / 1000));
+        };
+        requestAnimationFrame(frame);
+      }),
+  );
+  writeFileSync(`${SHOTS}/fps.txt`, `${fps.toFixed(1)}\n`);
+  expect(fps).toBeGreaterThan(20);
+
+  // Fase 7: modo holograma con la retícula de sectores, y vuelta al mapa ilustrado.
+  await a.getByRole('button', { name: 'Holograma' }).click();
+  await a.waitForTimeout(300);
+  await shot(a, '21-holograma', false);
+  await a.getByRole('button', { name: 'Mapa' }).click();
 
   // Pausa por votación: propone una, vota la otra y se reanuda cuando las dos pulsan «Listo».
   await a.getByRole('button', { name: 'Proponer pausa' }).click();
@@ -192,6 +216,11 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await b.getByRole('button', { name: 'Listo para seguir' }).click();
   await expect(a.getByText(/Se reanuda en/)).toBeVisible();
   await expect(a.getByRole('heading', { name: 'Partida en pausa' })).toBeHidden({ timeout: 8000 });
+
+  // Cae la noche (día y noche acortados en las pruebas): el mapa se oscurece y el reloj lo dice.
+  await expect(a.getByText(/^Noche 1\. Amanece en/)).toBeVisible({ timeout: 20_000 });
+  await a.waitForTimeout(1500);
+  await shot(a, '22-noche', false);
 
   // Recargar a mitad de partida devuelve a la arena con la instantánea completa.
   await b.reload();

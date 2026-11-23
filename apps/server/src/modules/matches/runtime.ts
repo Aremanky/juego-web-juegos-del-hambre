@@ -32,6 +32,9 @@ export interface MatchTimings {
   presentationMs: number;
   countdownMs: number;
   snapshotMs: number;
+  /** Solo pruebas: día y noche más cortos que los del ritmo de sala. */
+  dayMs?: number;
+  nightMs?: number;
 }
 
 /** Lo que la partida necesita de su sala: sockets conectados, presencia y avisos. */
@@ -264,6 +267,14 @@ export class MatchRuntime {
         return null;
       case 'conexion':
         return e.connected ? `${this.name(e.actorId)} ha vuelto.` : `${this.name(e.actorId)} se ha desconectado: ${POLICY_TEXT[this.world.rules.disconnectPolicy]}.`;
+      case 'descubre': {
+        const poi = this.world.map.pois.find((p) => p.id === e.region);
+        return poi ? `Has llegado a ${poi.name}.` : null;
+      }
+      case 'anochece':
+        return 'Cae la noche: se ve menos y es más fácil esconderse.';
+      case 'amanece':
+        return 'Amanece en la arena.';
     }
   }
 
@@ -278,7 +289,12 @@ export class MatchRuntime {
       const text = this.text(e);
       if (text) {
         const dto: MatchEventDTO = { kind: e.type, text, at: now };
-        for (const [socketId] of this.host.sockets()) this.deps.io.emitToSocket(socketId, 'match:event', dto);
+        // Descubrir una región es privado: contárselo a todos revelaría dónde está con niebla.
+        const only = e.type === 'descubre' ? actorById(this.world, e.actorId)?.userId : undefined;
+        for (const [socketId, userId] of this.host.sockets()) {
+          if (e.type === 'descubre' && userId !== only) continue;
+          this.deps.io.emitToSocket(socketId, 'match:event', dto);
+        }
       }
       if (e.type === 'fase' && e.phase !== 'terminada') this.queueSnapshot();
       if (e.type === 'fin') void this.finish();

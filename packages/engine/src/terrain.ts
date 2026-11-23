@@ -1,6 +1,7 @@
 /**
  * Terrenos de la arena (GDD §7.2). El coste multiplica el tiempo de cruzar una casilla.
- * Esta fase usa los biomas básicos; caminos, ríos, ruinas y poblados llegan con el mapa ilustrado (fase 7).
+ * Los ids 0–8 son los de la 0.4 (partidas guardadas); caminos, ríos, pantanos, ruinas y poblados llegan con el
+ * generador completo de la fase 7.
  */
 export const T = {
   AGUA: 0,
@@ -12,6 +13,11 @@ export const T = {
   CUMBRE: 6,
   PLAZA: 7,
   ORILLA: 8,
+  CAMINO: 9,
+  RIO: 10,
+  PANTANO: 11,
+  RUINAS: 12,
+  POBLADO: 13,
 } as const;
 export type TerrainId = (typeof T)[keyof typeof T];
 
@@ -35,6 +41,11 @@ export const TERRAIN: readonly TerrainDef[] = [
   { id: T.CUMBRE, key: 'cumbre', name: 'Cumbre', cost: 3.0, color: '#c8c1b2' },
   { id: T.PLAZA, key: 'plaza', name: 'Explanada del Obelisco', cost: 1.0, color: '#7b6a47' },
   { id: T.ORILLA, key: 'orilla', name: 'Orilla', cost: 1.1, color: '#8a7c58' },
+  { id: T.CAMINO, key: 'camino', name: 'Camino', cost: 0.8, color: '#9b8a63' },
+  { id: T.RIO, key: 'rio', name: 'Río', cost: 2.0, color: '#2f5560' },
+  { id: T.PANTANO, key: 'pantano', name: 'Pantano', cost: 2.2, color: '#3d4a33' },
+  { id: T.RUINAS, key: 'ruinas', name: 'Ruinas', cost: 1.3, color: '#77705f' },
+  { id: T.POBLADO, key: 'poblado', name: 'Poblado', cost: 1.1, color: '#8c7650' },
 ];
 
 export function terrainCost(id: number): number {
