@@ -1,0 +1,20 @@
+# Túnel de Cloudflare (cloudflared) hacia el juego, sin abrir puertos en el router.
+# Copia a /etc/cloudflared/config.yml y sustituye TUNNEL_ID y el dominio.
+#
+#   cloudflared tunnel login
+#   cloudflared tunnel create ceniza
+#   cloudflared tunnel route dns ceniza juegos.tudominio.com
+#   sudo cloudflared service install
+#
+# Los WebSocket (Socket.IO) funcionan a través del túnel sin configuración extra.
+
+tunnel: TUNNEL_ID
+credentials-file: /etc/cloudflared/TUNNEL_ID.json
+
+ingress:
+  - hostname: juegos.tudominio.com
+    service: http://127.0.0.1:3000
+    originRequest:
+      connectTimeout: 10s
+      keepAliveTimeout: 90s
+  - service: http_status:404

@@ -1,0 +1,46 @@
+[Unit]
+Description=Los Juegos de la Ceniza (servidor de juego)
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=ceniza
+Group=ceniza
+WorkingDirectory=/opt/ceniza/app
+EnvironmentFile=/etc/ceniza/ceniza.env
+ExecStart=/usr/bin/node apps/server/dist/index.js
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+KillSignal=SIGTERM
+
+# Endurecimiento: solo puede escribir en /var/lib/ceniza
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/ceniza
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+MemoryMax=1536M
+LimitNOFILE=65536
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ceniza
+
+[Install]
+WantedBy=multi-user.target

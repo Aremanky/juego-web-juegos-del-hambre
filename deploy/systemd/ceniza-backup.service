@@ -1,0 +1,11 @@
+[Unit]
+Description=Copia de seguridad de Los Juegos de la Ceniza (BD + fotos)
+After=postgresql.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/ceniza/ceniza.env
+EnvironmentFile=-/etc/ceniza/backup.env
+ExecStart=/opt/ceniza/app/deploy/scripts/backup.sh
+Nice=10
+IOSchedulingClass=idle

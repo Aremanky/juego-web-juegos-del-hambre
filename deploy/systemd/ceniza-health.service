@@ -1,0 +1,8 @@
+[Unit]
+Description=Comprobación de salud de Los Juegos de la Ceniza
+After=ceniza.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/ceniza/ceniza.env
+ExecStart=/opt/ceniza/app/deploy/scripts/healthcheck.sh

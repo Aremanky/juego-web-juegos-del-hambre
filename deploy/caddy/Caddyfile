@@ -1,0 +1,32 @@
+# Caddy como proxy inverso con HTTPS automático (Let's Encrypt).
+# Úsalo SOLO si expones el juego abriendo los puertos 80 y 443 en tu router.
+# Si publicas con un túnel de Cloudflare (cloudflared), no necesitas Caddy.
+#
+# Sustituye juegos.example.com por tu dominio (un registro A/AAAA debe apuntar a tu IP pública).
+
+juegos.example.com {
+	encode zstd gzip
+
+	# El juego (Node) escucha solo en localhost. Caddy gestiona WebSocket automáticamente.
+	reverse_proxy 127.0.0.1:3000 {
+		health_uri /api/health
+		health_interval 30s
+	}
+
+	request_body {
+		max_size 15MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/ceniza.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}
