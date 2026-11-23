@@ -49,7 +49,7 @@ se acepta desde el navegador.
 | Chat | `modules/chat` | Global y de sala (persistido); en partida según la configuración de sala | ✅ |
 | Tiempo real | `realtime/io.ts` | Autenticación de sockets, envoltorio de eventos, presencia | ✅ |
 | Partidas | `packages/engine` + `modules/matches` | Mundo, bucle a 10 Hz, fotogramas por jugador a 5 Hz, instantáneas, eventos | ✅ |
-| Mapa, movimiento, inventario, combate, alianzas, eventos, bots IA, historial, administración | fases 5–10 | Ver GDD | ⏳ |
+| Mapa ilustrado, personajes animados, inventario, combate en partida, alianzas, eventos, bots IA, cómputo en la GPU del anfitrión, historial, administración | fases 6–10 | Ver GDD | ⏳ |
 
 ## Salas: concurrencia y consistencia
 
