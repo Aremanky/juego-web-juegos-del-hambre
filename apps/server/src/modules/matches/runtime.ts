@@ -60,6 +60,32 @@ const POLICY_TEXT = {
   eliminar: 'queda fuera si no vuelve a tiempo',
 } as const;
 
+/** Rendimiento del bucle: duración de los últimos ticks y lo enviado a los jugadores. */
+export class MatchPerf {
+  private readonly ticks = new Float64Array(1200); // dos minutos a 10 Hz
+  private n = 0;
+  frames = 0;
+  /** Aproximado: longitud del JSON de cada fotograma (sin la envoltura de Socket.IO). */
+  bytes = 0;
+
+  tick(ms: number): void {
+    this.ticks[this.n++ % this.ticks.length] = ms;
+  }
+
+  stats() {
+    const k = Math.min(this.n, this.ticks.length);
+    const v = Array.from(this.ticks.subarray(0, k)).sort((a, b) => a - b);
+    const q = (p: number) => (k ? v[Math.min(k - 1, Math.floor(p * k))] : 0);
+    return { ticks: this.n, p50: q(0.5), p95: q(0.95), p99: q(0.99), max: k ? v[k - 1] : 0, frames: this.frames, bytes: this.bytes };
+  }
+
+  reset(): void {
+    this.n = 0;
+    this.frames = 0;
+    this.bytes = 0;
+  }
+}
+
 /**
  * Bucle de una partida: avanza el mundo a 10 Hz, difunde a cada jugador su propia vista a 5 Hz
  * (solo lo que ha cambiado), guarda instantáneas periódicas y registra cada evento.
@@ -73,6 +99,7 @@ export class MatchRuntime {
   private persist = new SerialQueue();
   private finishing = false;
   lastActivity = Date.now();
+  readonly perf = new MatchPerf();
 
   constructor(
     readonly id: string,
@@ -121,12 +148,14 @@ export class MatchRuntime {
   }
 
   step(now = Date.now()): void {
+    const t0 = performance.now();
     this.steps++;
     const ev = tick(this.world, now, this.eligible());
     if (ev.length) this.handle(ev);
     if (this.steps % 2 === 0 || ev.length) this.broadcast(now);
     if (this.steps % 10 === 0) this.flushEvents();
     if (now - this.lastSnapshotAt >= this.deps.timings.snapshotMs && !this.finished) this.queueSnapshot();
+    this.perf.tick(performance.now() - t0);
   }
 
   // ------------------------------------------------------------------ sockets
@@ -184,17 +213,21 @@ export class MatchRuntime {
       let actors = views.get(userId);
       if (!actors) views.set(userId, (actors = computeView(w, userId).actors));
       const changed: ActorView[] = [];
+      let bytes = 0;
       for (const a of actors) {
         const j = JSON.stringify(a);
         if (st.actors.get(a.id) !== j) {
           changed.push(a);
           st.actors.set(a.id, j);
+          bytes += j.length + 1;
         }
       }
       const clockDue = now - st.clockAt >= 2000;
       if (!force && !changed.length && st.header === headerJson && !clockDue) continue;
       st.header = headerJson;
       st.clockAt = now;
+      this.perf.frames++;
+      this.perf.bytes += headerJson.length + bytes + 120;
       this.deps.io.emitToSocket(socketId, 'match:frame', {
         matchId: this.id,
         ...header,
@@ -301,7 +334,9 @@ export class MatchRuntime {
 
   private after(ev: WorldEvent[] = []) {
     if (ev.length) this.handle(ev);
-    this.broadcast(Date.now(), true);
+    // Respuesta inmediata solo a quien le cambia algo (el que da la orden y quien lo ve). Forzar un
+    // fotograma a todos multiplicaba el tráfico por el número de jugadores (prueba de carga).
+    this.broadcast(Date.now());
   }
 
   move(userId: string, x: number, y: number): void {

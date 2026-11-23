@@ -1,6 +1,6 @@
 # PROJECT_STATUS — Los Juegos de la Ceniza
 
-**Versión:** 0.5.0 · **Última actualización:** 23/11/2026 (sesión 3, fase 5) · **Avance global: ~53 %**
+**Versión:** 0.5.1 · **Última actualización:** 23/11/2026 (sesión 3: fase 5 y cierre de la fase 4) · **Avance global: ~54 %**
 
 El proyecto es ejecutable: se puede registrar, guardar fotos y personajes, crear salas, invitar por código o
 enlace, preparar la partida con amigos y bots y **jugarla en tiempo real**: presentación, cuenta atrás, mapa por
@@ -24,14 +24,14 @@ Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Ar
 | 1 | Entorno, experiencia y mecánicas (GDD) | 4 % | **100 %** | ██████████ |
 | 2 | Arquitectura, estructura e infraestructura | 6 % | **90 %** | █████████░ |
 | 3 | Usuarios, salas, lobby, personajes, fotos persistentes | 11 % | **100 %** | ██████████ |
-| 4 | Motor multijugador y sincronización de partida | 11 % | **90 %** | █████████░ |
+| 4 | Motor multijugador y sincronización de partida | 11 % | **100 %** | ██████████ |
 | 5 | Estadísticas, habilidades y reparto de puntos | 6 % | **100 %** | ██████████ |
 | 6 | Bots autónomos (IA en el servidor y en la GPU del anfitrión) | 11 % | 35 % | ███▌░░░░░░ |
 | 7 | Mapa ilustrado, **personajes animados**, movimiento y exploración | 14 % | 20 % | ██░░░░░░░░ |
 | 8 | Recursos, combates, alianzas y traiciones | 11 % | 15 % | █▌░░░░░░░░ |
 | 9 | Eventos dinámicos y progresión | 6 % | 5 % | ▌░░░░░░░░░ |
 | 10 | Interfaz completa, **personalización amplia y personaje desde foto** | 13 % | 35 % | ███▌░░░░░░ |
-| 11 | Pruebas completas, optimización y errores | 4 % | 40 % | ████░░░░░░ |
+| 11 | Pruebas completas, optimización y errores | 4 % | 45 % | ████▌░░░░░ |
 | 12 | Despliegue definitivo en Proxmox | 3 % | 60 % | ██████░░░░ |
 
 **Por qué el avance global solo sube un punto.** En esta sesión se ha ampliado el alcance:
@@ -44,7 +44,8 @@ Los pesos se han recalculado con ese alcance (antes F7 12 % y F10 8 %; ahora 14 
 compensa justo lo que crece el resto.
 
 Notas de reparto:
-- **F4 (90 %)**: falta una prueba de carga con 24 participantes y el sobrevuelo de la arena en la presentación.
+- **F4 (100 %)**: cerrada con el sobrevuelo de la arena en la presentación y la prueba de carga con 24 participantes
+  (resultados abajo y en `docs/LOAD.md`).
 - **F5 (100 %)**: todo lo que la fase promete:
   - atributos con efecto real y desglose comprobado;
   - efectos según la situación y ventajas de distrito aplicadas al movimiento y a la visión de la partida;
@@ -128,6 +129,12 @@ Notas de reparto:
 - Niebla de guerra opcional; pausa por votación; desconexión con piloto, a cubierto o eliminación.
 - Abandonar, clasificación por orden de caída, ganador y pantalla de resultados.
 - Instantáneas cada 10 s y al apagar: tras un reinicio la partida vuelve en pausa con el mismo mundo.
+- **Sobrevuelo de la arena** al empezar: vista general, una vuelta en espiral sobre el mapa y descenso hasta tu sitio en el
+  anillo; después, los Elegidos. Se corta si tocas el mapa y no se anima si el sistema pide menos movimiento.
+- **Probada con 24 participantes** (sala llena, mapa grande, niebla, órdenes cada 1–2 s): tick p95 de 1,9 ms de los
+  100 disponibles, respuesta a una orden p95 de 4 ms y unos 7 KB/s por jugador. La prueba encontró que cada orden
+  forzaba un fotograma a todos los jugadores; ahora solo lo recibe a quien le cambia algo (de 18,6 a 8,5 fotogramas/s
+  por jugador).
 
 **Interfaz**
 - Identidad visual propia («Ceniza y cristal») en todas las pantallas, incluidas la partida y la prueba de fuerza.
@@ -144,8 +151,9 @@ Notas de reparto:
 |---|---|---|
 | Unitarias (`packages/shared`) | **23/23 ✔** | Costes, arquetipos, atributos con efecto real, defectos y rasgos, validación, fábrica de bots, RNG, configuración, códigos; y de la fase 5: efectos que apuntan a orígenes que existen, coste de terreno solo donde el distrito lo promete, visión por terreno y altura, noche y salud baja, tope de precisión, desglose idéntico al motor con builds al azar |
 | Motor (`packages/engine`) | **35/35 ✔** | Las 18 de la fase 4 más 17 nuevas. Combate determinista, acercarse antes de golpear, esquiva, sorpresa, Último aliento, Golpe brutal, huida, tregua, detección, equilibrio dentro de ×0,5–×1,5, cada estilo con su terreno, prueba de fuerza. Y en partida: tabla de terrenos compartida, distrito VII en el bosque, distrito X en la roca, visión por terreno con niebla, partidas de la 0.4 recuperadas |
-| Integración (`apps/server`, PostgreSQL real) | **42/42 ✔** | Cuentas, fotos, plantillas, lobby y partida (inicio, movimiento, pausa, reconexión, reinicio a mitad de partida, abandono) |
-| Extremo a extremo (Chrome real) | **1/1 ✔** | Dos usuarios (escritorio + móvil) del registro a la partida, ahora con el desglose de estadísticas, los efectos según la situación y la prueba de fuerza en escritorio y en móvil |
+| Integración (`apps/server`, PostgreSQL real) | **44/44 ✔** | Cuentas, fotos, plantillas, lobby y partida (inicio, movimiento, pausa, reconexión, reinicio a mitad de partida, abandono) y la prueba de carga |
+| Carga (`npm run load`, 30 s) | **✔** | 24 humanos en mapa grande con niebla, 489 órdenes sin rechazos. Tick p50/p95/máx. 0,19/1,91/11,9 ms; respuesta p95 4 ms; bucle de eventos p99 11,5 ms; 6,8 KB/s por jugador (máx. 9,7); al final, cada cliente ve exactamente lo que el servidor calcula para él |
+| Extremo a extremo (Chrome real) | **1/1 ✔** | Dos usuarios (escritorio + móvil) del registro a la partida, con el desglose de estadísticas, la prueba de fuerza en escritorio y en móvil y el sobrevuelo de la arena |
 | Compilación y tipos | ✔ | `tsc` en los 4 paquetes, build de servidor y web (con el worker de la prueba de fuerza) |
 | Diseño (unslop-ui y detector de Impeccable) | **0 señales** | Sobre todas las pantallas |
 | Producción | ✔ | Health, SPA y rutas internas, CSP, caché inmutable en los archivos con hash |
@@ -165,7 +173,6 @@ Notas de reparto:
 
 ## Funcionalidades pendientes
 
-- **Fase 4:** prueba de carga con 24 participantes y sobrevuelo de la arena en la presentación.
 - **Fase 6:**
   - IA de bots con utility AI en el servidor: memoria y percepción idéntica a la de un humano.
   - Lo que necesite GPU en **la GPU del anfitrión de la sala**: modelo de lenguaje para el chat de los bots y
@@ -210,9 +217,8 @@ Notas de reparto:
    anfitrión con vuelta a la CPU del servidor.
 3. **Fase 8 (inicio):** medidores de supervivencia, búsqueda de recursos con los efectos de actividad ya
    definidos, e inventario.
-4. Prueba de carga de la fase 4 con 24 clientes simulados.
 
 ## Cómo continuar en la próxima sesión
 
-El código está en GitHub. `main` tiene la fase 4 y la fase 5 llega por la rama `fase-5-estadisticas` (pull
-request). Al empezar la próxima sesión basta con decir que siga desde el repositorio.
+El código está en GitHub. `main` tiene la fase 4; la fase 5 llega por la rama `fase-5-estadisticas` (pull
+request #2) y el cierre de la fase 4 por `fase-4-cierre` (pull request #3, que va encima de la #2). Al empezar la próxima sesión basta con decir que siga desde el repositorio.

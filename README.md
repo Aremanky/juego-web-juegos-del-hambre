@@ -34,6 +34,7 @@ npm run dev              # servidor en :3000 y web en http://localhost:5173
 | `npm run test:e2e` | Pruebas de extremo a extremo con Chrome (antes `npm run build -w @ceniza/web`) |
 | `npm run typecheck` | Comprobación de tipos de todos los paquetes |
 | `npm run balance` | Simula los arquetipos por parejas y reescribe `docs/BALANCE.md` |
+| `npm run load` | Prueba de carga con 24 jugadores en una partida y reescribe `docs/LOAD.md` |
 | `npm run db:generate` | Genera una migración tras cambiar `apps/server/src/db/schema.ts` |
 | `npm run admin:promote -w @ceniza/server -- usuario` | Da rol de administrador |
 

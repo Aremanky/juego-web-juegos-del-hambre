@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { T, TERRAIN, routePosition } from '@ceniza/engine';
 import type { ActorView } from '@ceniza/shared';
-import { gameNow, useMatch } from '../../stores/match';
+import { gameNow, presentationProgress, useMatch } from '../../stores/match';
 import { portraitSrc } from '../../lib/media';
 
 /**
@@ -173,10 +173,56 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       view.oy = sy - (sy - view.oy) * k;
       view.scale = next;
     };
+    // Sobrevuelo de la presentación (GDD §2): vista general, una vuelta en espiral sobre la arena y
+    // descenso hasta tu sitio en el anillo. Se corta en cuanto tocas el mapa; sin animación si el
+    // sistema pide menos movimiento.
+    const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let cinematic = true;
+    let flying = false;
+    const ease = (x: number) => (x < 0.5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2);
+    const startAngle = ((seed.length ? seed.charCodeAt(seed.length - 1) : 3) % 8) * (Math.PI / 4);
+    const playScale = () => clampScale(Math.min(view.w, view.h) / (30 * TILE));
+    const overviewScale = () => clampScale(0);
+    const fly = (u: number) => {
+      const c = useMatch.getState().center;
+      const R = size * 0.26;
+      const over = overviewScale();
+      const mid = Math.max(over, Math.min(playScale(), over * 2.4));
+      const orbit = (k: number) => {
+        const ang = startAngle + ease(k) * Math.PI * 1.5;
+        const r = R * Math.min(1, k * 3);
+        return { x: c.x + Math.cos(ang) * r, y: c.y + Math.sin(ang) * r };
+      };
+      let p: { x: number; y: number };
+      if (reduced || u < 0.12) {
+        p = c;
+        view.scale = over;
+      } else if (u < 0.78) {
+        const k = (u - 0.12) / 0.66;
+        p = orbit(k);
+        view.scale = over + (mid - over) * ease(Math.min(1, k * 2.5));
+      } else {
+        const k = ease((u - 0.78) / 0.22);
+        const a = orbit(1);
+        const b = myPos();
+        p = { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k };
+        view.scale = mid + (playScale() - mid) * k;
+      }
+      centerOn(p.x, p.y);
+    };
+    const takeControl = () => {
+      cinematic = false;
+      flying = false;
+    };
+
     if (apiRef) {
       apiRef.current = {
-        zoom: (f) => zoomAt(f, view.w / 2, view.h / 2),
+        zoom: (f) => {
+          takeControl();
+          zoomAt(f, view.w / 2, view.h / 2);
+        },
         centerOnMe: () => {
+          takeControl();
           const p = myPos();
           centerOn(p.x, p.y);
         },
@@ -192,6 +238,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       return { x: e.clientX - r.left, y: e.clientY - r.top };
     };
     const down = (e: PointerEvent) => {
+      takeControl();
       el.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, local(e));
       moved = 0;
@@ -228,6 +275,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
+      takeControl();
       const p = { x: e.offsetX, y: e.offsetY };
       zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, p.x, p.y);
     };
@@ -241,6 +289,17 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       raf = requestAnimationFrame(draw);
       const st = useMatch.getState();
       const now = gameNow();
+      if (st.phase === 'presentacion' && cinematic) {
+        flying = true;
+        fly(presentationProgress());
+      } else if (flying) {
+        // Al acabar la presentación, la cámara queda en tu sitio con el zoom de juego.
+        flying = false;
+        cinematic = false;
+        view.scale = playScale();
+        const p = myPos();
+        centerOn(p.x, p.y);
+      }
       const s = view.scale * TILE;
       g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
       g.fillStyle = '#0d1112';

@@ -107,6 +107,13 @@ export const useMatch = create<MatchStore>((set, get) => ({
 }));
 
 /** Tiempo de partida ahora mismo (ms), extrapolado desde el último reloj recibido. */
+/** Avance de la presentación, de 0 a 1. La partida empieza en t = 0, así que es t / fin de la fase. */
+export function presentationProgress(): number {
+  const st = useMatch.getState();
+  if (st.phase !== 'presentacion' || !st.phaseEndsAt) return 1;
+  return Math.min(1, Math.max(0, gameNow() / st.phaseEndsAt));
+}
+
 export function gameNow(): number {
   const { clock } = useMatch.getState();
   if (!clock.running) return clock.t;
