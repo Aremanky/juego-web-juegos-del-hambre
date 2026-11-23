@@ -180,7 +180,7 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
   fotogramas lleguen a 5 Hz. Una orden nueva a mitad de paso termina ese paso primero: nunca hay teletransportes.
 - **Vista por jugador**: `computeView` filtra lo que ve cada uno. Con niebla, un vivo solo ve a quien está dentro
   de su radio de visión; de los demás solo se envía el paso en curso y el siguiente, nunca su destino. Los bots
-  usarán esta misma función (fase 6).
+  perciben con la misma regla (`perceive`).
 - **Fotogramas**: por cada socket se guarda lo último enviado y solo se mandan los personajes que han cambiado,
   más el reloj cada 2 s para corregir la deriva.
 - **Pausa por votación**: votan los humanos vivos y conectados (mayoría o unanimidad). La votación caduca a los 30 s.
@@ -189,8 +189,8 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
   gracia (contados en tiempo de juego, así una pausa no castiga). Al volver, el jugador recupera el control.
 - **Instantáneas**: cada 10 s, en cada cambio de fase y al apagar el servidor. Tras un reinicio, o si la sala se
   descarga de memoria por estar vacía, la partida vuelve en pausa con el mismo mundo.
-- **Piloto provisional**: hasta la IA de la fase 6, bots y desconectados en piloto eligen destinos cercanos y
-  caminan usando la misma API de intenciones que un humano.
+- **Bots y piloto automático**: desde la fase 6 los mueve la IA de `ai.ts` (sección «IA de los bots»), con la
+  misma API de intenciones que un humano.
 - **Final**: abandonar o quedar fuera por desconexión fija el puesto; con uno solo en pie, gana. Se guardan los
   puestos, el ganador y la instantánea final, y los participantes pueden volver a ver el resultado.
 - **Presentación**: mientras dura, la cámara del cliente sobrevuela la arena (vista general, espiral y descenso a tu
