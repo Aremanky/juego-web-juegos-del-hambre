@@ -3,6 +3,10 @@ export * from './game/abilities.js';
 export * from './game/traits.js';
 export * from './game/districts.js';
 export * from './game/derived.js';
+export * from './game/terrain.js';
+export * from './game/items.js';
+export * from './game/situational.js';
+export * from './game/breakdown.js';
 export * from './game/archetypes.js';
 export * from './game/bots.js';
 export * from './game/cosmetics.js';
@@ -16,4 +20,4 @@ export * from './schemas/api.js';
 export * from './schemas/lobby.js';
 export * from './schemas/match.js';
 
-export const APP_VERSION = '0.4.0';
+export const APP_VERSION = '0.5.0';

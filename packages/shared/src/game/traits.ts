@@ -25,7 +25,7 @@ export const TRAITS: Record<TraitKey, TraitDef> = {
   leal: { key: 'leal', name: 'Leal', icon: 'Handshake', pro: 'Bonos de alianza +50% y reputación inicial 60.', con: 'Traicionar te provoca Remordimiento (−15% a todo 3 min) y −45 de reputación.' },
   oportunista: { key: 'oportunista', name: 'Oportunista', icon: 'Coins', pro: 'Las traiciones dan +50% de favor y +25% de daño en el golpe de traición.', con: 'Reputación inicial 35; los bots desconfían de ti.' },
   sangreFria: { key: 'sangreFria', name: 'Sangre fría', icon: 'Snowflake', pro: 'Inmune a Pánico e Intimidar; +10% de precisión con menos del 50% de salud.', con: '−15% de favor: aburres al público.' },
-  temerario: { key: 'temerario', name: 'Temerario', icon: 'Flame', pro: '+15% de daño en tu primer ataque de cada combate y +5% de velocidad persiguiendo.', con: 'Recibes +10% de daño.' },
+  temerario: { key: 'temerario', name: 'Temerario', icon: 'Flame', pro: '+15% de daño en tu primer ataque de cada combate y +5% de velocidad persiguiendo.', con: 'Recibes +15% de daño.' },
   precavido: { key: 'precavido', name: 'Precavido', icon: 'ScanEye', pro: '+20% de detección de trampas y emboscadas.', con: '−5% de velocidad: te paras a mirar.' },
   solitario: { key: 'solitario', name: 'Solitario', icon: 'UserRound', pro: '+10% de búsqueda, sigilo y daño mientras no tengas aliados.', con: 'Alianzas de 2 como máximo; pierdes el bono si tienes aliado.' },
   metabolismoRapido: { key: 'metabolismoRapido', name: 'Metabolismo rápido', icon: 'Activity', pro: '+40% de regeneración de salud y energía.', con: '+25% de hambre y sed.' },

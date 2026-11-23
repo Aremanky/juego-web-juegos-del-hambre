@@ -33,6 +33,7 @@ npm run dev              # servidor en :3000 y web en http://localhost:5173
 | `npm test` | Pruebas unitarias e integración (necesita la BD `ceniza_test`) |
 | `npm run test:e2e` | Pruebas de extremo a extremo con Chrome (antes `npm run build -w @ceniza/web`) |
 | `npm run typecheck` | Comprobación de tipos de todos los paquetes |
+| `npm run balance` | Simula los arquetipos por parejas y reescribe `docs/BALANCE.md` |
 | `npm run db:generate` | Genera una migración tras cambiar `apps/server/src/db/schema.ts` |
 | `npm run admin:promote -w @ceniza/server -- usuario` | Da rol de administrador |
 
@@ -40,7 +41,7 @@ npm run dev              # servidor en :3000 y web en http://localhost:5173
 
 ```
 packages/shared   reglas del juego, fórmulas y contratos (cliente y servidor)
-packages/engine   simulación de la partida: mapa, rutas, tick, pausa, vista por jugador
+packages/engine   simulación de la partida: mapa, rutas, tick, pausa, vista por jugador, combate y equilibrio
 apps/server       Fastify + Socket.IO + Drizzle (PostgreSQL)
 apps/web          React + Vite
 deploy/           systemd, Caddy, Nginx, cloudflared y scripts de instalación y copias

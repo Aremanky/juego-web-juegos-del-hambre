@@ -2,6 +2,8 @@ import {
   computeDerived,
   hashString,
   Rng,
+  terrainCosts,
+  visionByTerrain,
   type ActorControl,
   type ActorView,
   type Character,
@@ -17,7 +19,7 @@ import {
 import { generateMap, inBounds, spawnRing, tileAt, type Cell, type GameMap } from './map.js';
 import { findPath } from './path.js';
 import { buildRoute, nextStop, routeEnd, routeEndTime, routeGlimpse, routePosition, truncateAfterCurrent, type Route } from './route.js';
-import { decodeTiles, encodeTiles, T } from './terrain.js';
+import { decodeTiles, encodeTiles, T, TERRAIN } from './terrain.js';
 
 /**
  * Simulación autoritativa de una partida (GDD §3). Sin E/S: el servidor la hace avanzar a 10 Hz,
@@ -51,7 +53,12 @@ export interface ActorState {
   gender: Gender;
   /** Casillas por segundo en terreno de coste 1. */
   speed: number;
+  /** Radio de visión en pradera, de día. */
   vision: number;
+  /** Coste de cada terreno para este personaje (ventajas de distrito), por id de terreno. */
+  costs: number[];
+  /** Radio de visión en cada terreno (bosque lo recorta, la altura lo amplía), por id de terreno. */
+  visionBy: number[];
   /** Casilla donde empieza la ruta en curso, o donde está si no se mueve. */
   x: number;
   y: number;
@@ -133,7 +140,8 @@ export function createWorld(opts: { seed: string; mapSize: number; actors: Actor
   const startAt = opts.rules.presentationMs + opts.rules.countdownMs;
   const actors = opts.actors.map((a, i): ActorState => {
     const c = a.character;
-    const d = computeDerived({ attributes: c.attributes, abilities: c.abilities, trait: c.trait, defect: c.defect, district: a.district });
+    const build = { attributes: c.attributes, abilities: c.abilities, trait: c.trait, defect: c.defect, district: a.district };
+    const d = computeDerived(build);
     return {
       id: a.id,
       kind: a.kind,
@@ -147,6 +155,8 @@ export function createWorld(opts: { seed: string; mapSize: number; actors: Actor
       gender: a.gender,
       speed: d.moveSpeed,
       vision: d.visionRadius,
+      costs: terrainCosts(build),
+      visionBy: visionByTerrain(build, d),
       x: spawns[i].x,
       y: spawns[i].y,
       route: null,
@@ -187,6 +197,13 @@ export function actorOfUser(w: World, userId: string): ActorState | undefined {
 
 export function positionAt(a: ActorState, t: number): { x: number; y: number } {
   return a.route ? routePosition(a.route, t) : { x: a.x, y: a.y };
+}
+
+/** Radio de visión según el terreno que pisa en ese punto. */
+export function visionAt(w: World, a: ActorState, p: { x: number; y: number }): number {
+  const x = Math.min(w.map.size - 1, Math.max(0, Math.round(p.x)));
+  const y = Math.min(w.map.size - 1, Math.max(0, Math.round(p.y)));
+  return a.visionBy?.[tileAt(w.map, x, y)] ?? a.vision;
 }
 
 export function aliveCount(w: World): number {
@@ -256,9 +273,9 @@ function wander(w: World, a: ActorState) {
     if (!inBounds(w.map, x, y)) continue;
     const tt = tileAt(w.map, x, y);
     if (tt === T.AGUA || tt === T.CUMBRE) continue;
-    const path = findPath(w.map, from, { x, y }, 5000);
+    const path = findPath(w.map, from, { x, y }, 5000, a.costs);
     if (!path || path.length === 0) continue;
-    a.route = buildRoute(w.map, from, path, w.t, a.speed);
+    a.route = buildRoute(w.map, from, path, w.t, a.speed, a.costs);
     a.nextThinkAt = routeEndTime(a.route) + w.rng.int(1500, 6000);
     return;
   }
@@ -290,10 +307,10 @@ export function moveIntent(w: World, actorId: string, to: Cell): void {
     a.route = head && head.times.length > 1 ? head : null;
     return;
   }
-  const path = findPath(w.map, stop.cell, to);
+  const path = findPath(w.map, stop.cell, to, undefined, a.costs);
   if (!path) throw new IntentError('No hay camino hasta ahí');
   if (path.length > MAX_ROUTE_CELLS) throw new IntentError('Demasiado lejos para una sola orden: elige un punto más cercano');
-  const tail = buildRoute(w.map, stop.cell, path, stop.time, a.speed);
+  const tail = buildRoute(w.map, stop.cell, path, stop.time, a.speed, a.costs);
   const route = concat(head && head.times.length > 1 ? head : null, tail);
   if (!a.route) {
     a.x = route.cells[0];
@@ -465,7 +482,7 @@ function toView(w: World, a: ActorState, self: boolean, seen: boolean): ActorVie
     connected: a.connected,
     control: a.control,
     seen,
-    vision: self ? a.vision : null,
+    vision: self ? visionAt(w, a, positionAt(a, w.t)) : null,
     x: seen ? a.x : -1,
     y: seen ? a.y : -1,
     route: seen && a.route ? (self ? a.route : routeGlimpse(a.route, w.t)) : null,
@@ -480,12 +497,13 @@ export function computeView(w: World, viewerUserId: string | null): { me: string
   const me = viewerUserId ? actorOfUser(w, viewerUserId) : undefined;
   const fog = w.rules.visibility === 'niebla' && !!me && me.alive && w.phase === 'en_curso';
   const mine = me ? positionAt(me, w.t) : null;
+  const radius = me && mine ? visionAt(w, me, mine) : 0;
   const actors = w.actors.map((a) => {
     const self = a.id === me?.id;
     let seen = true;
     if (fog && !self && a.alive && mine) {
       const p = positionAt(a, w.t);
-      seen = Math.hypot(p.x - mine.x, p.y - mine.y) <= me!.vision;
+      seen = Math.hypot(p.x - mine.x, p.y - mine.y) <= radius;
     }
     return toView(w, a, self, seen);
   });
@@ -531,7 +549,13 @@ export function serializeWorld(w: World): WorldJSON {
 }
 
 export function restoreWorld(j: WorldJSON): World {
-  return { ...clone(j), map: { size: j.map.size, tiles: decodeTiles(j.map.tiles), center: { ...j.map.center } }, rng: new Rng(j.rng) } as World;
+  const w = { ...clone(j), map: { size: j.map.size, tiles: decodeTiles(j.map.tiles), center: { ...j.map.center } }, rng: new Rng(j.rng) } as World;
+  // Partidas guardadas por la 0.4: siguen con las reglas de entonces (sin ventajas de terreno).
+  for (const a of w.actors) {
+    a.costs ??= TERRAIN.map((t) => t.cost);
+    a.visionBy ??= TERRAIN.map(() => a.vision);
+  }
+  return w;
 }
 
 export function hashWorld(w: World): number {

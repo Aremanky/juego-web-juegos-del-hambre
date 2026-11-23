@@ -120,7 +120,7 @@
 .editor { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 1.5rem; align-items: start; }
 .editor-side { position: sticky; top: 76px; display: grid; gap: 1rem; }
 .modal .editor-side { top: 0; }
-.editor-body { padding-top: 1.25rem; }
+.editor-body { padding-top: 1.25rem; min-width: 0; }
 .preview { display: grid; gap: 0.75rem; }
 .preview-card { display: grid; justify-items: center; text-align: center; gap: 0.3rem; padding: 1.25rem 0.75rem 1rem; border: 1px solid var(--line-soft); background: rgba(0, 0, 0, 0.3); }
 .preview-name { font-size: var(--fs-3); margin-top: 0.4rem; }
@@ -169,7 +169,41 @@
 .radar { width: 100%; max-width: 260px; }
 .derived { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.9rem 1.5rem; }
 .derived-group { display: grid; gap: 0.2rem; align-content: start; }
-.derived-row { display: flex; justify-content: space-between; gap: 0.5rem; font-size: var(--fs-1); border-bottom: 1px dotted rgba(239, 231, 218, 0.08); padding: 0.1rem 0; }
+.derived-row { display: flex; justify-content: space-between; gap: 0.5rem; width: 100%; font: inherit; font-size: var(--fs-1); color: inherit; text-align: left; background: none; border: 0; border-bottom: 1px dotted rgba(239, 231, 218, 0.08); padding: 0.15rem 0; cursor: pointer; }
+.derived-row:hover span:first-child, .derived-row[aria-expanded='true'] span:first-child { color: var(--oro-2); }
+.derived-row:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
+.derived-hint { grid-column: 1 / -1; margin: 0; }
+.why { margin: 0.35rem 0 0.6rem; padding: 0.55rem 0.7rem; background: rgba(0, 0, 0, 0.32); border: 1px solid var(--line-soft); font-size: var(--fs-0); }
+.why-formula { margin: 0 0 0.4rem; color: var(--ceniza); }
+.why-lines { display: grid; gap: 0.15rem; margin: 0; }
+.why-lines div { display: flex; justify-content: space-between; gap: 0.75rem; }
+.why-lines dt, .why-lines dd { margin: 0; }
+.why-total { border-top: 1px solid var(--line-soft); padding-top: 0.2rem; margin-top: 0.1rem; font-weight: 600; }
+.situational { margin-top: 1rem; }
+.situational h4 { margin: 0 0 0.4rem; font-size: var(--fs-1); }
+.situational ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.25rem; font-size: var(--fs-1); }
+.situational li .faint { margin-right: 0.35rem; }
+@media (pointer: coarse) { .derived-row { min-height: 40px; align-items: center; } }
+
+.strength-tab { grid-template-columns: minmax(0, 1fr); }
+.strength-head { display: grid; gap: 0.35rem; }
+.strength-head p { margin: 0; max-width: 72ch; }
+.strength-total { font-size: var(--fs-2); }
+.strength-total .num { font-family: var(--font-display); font-size: var(--fs-5); margin-right: 0.4rem; color: var(--hueso); }
+.strength-scroll { overflow-x: auto; border: 1px solid var(--line-soft); }
+.strength-scroll:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
+.strength { width: 100%; border-collapse: collapse; font-size: var(--fs-0); }
+.strength th, .strength td { padding: 0.45rem 0.55rem; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+.strength thead th { font-weight: 600; color: var(--ceniza); text-align: right; }
+.strength thead th:first-child, .strength th[scope='row'] { text-align: left; }
+.strength th[scope='row'] { position: sticky; left: 0; background: var(--pizarra-2); font-weight: 500; }
+.strength td { text-align: right; }
+.strength .strength-avg { font-weight: 700; border-left: 1px solid var(--line-soft); }
+.strength tfoot th, .strength tfoot td { border-bottom: 0; border-top: 1px solid var(--line); font-weight: 600; }
+.strength.stale td { opacity: 0.55; transition: opacity 0.2s; }
+.strength-scenarios { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.6rem 1.25rem; margin: 0; }
+.strength-scenarios dt { font-weight: 600; font-size: var(--fs-1); }
+.strength-scenarios dd { margin: 0.15rem 0 0; }
 .derived-row em { font-style: normal; margin-left: 0.35rem; font-size: 0.75em; }
 .derived-row em.up { color: var(--holo); }
 .derived-row em.down { color: #ff8d9b; }
@@ -273,7 +307,7 @@
 @media (max-width: 1020px) {
   .menu-grid { grid-template-columns: 1fr; }
   .menu-chat { position: static; height: 460px; }
-  .editor { grid-template-columns: 1fr; }
+  .editor { grid-template-columns: minmax(0, 1fr); }
   .editor-side { position: static; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .lobby-grid { grid-template-columns: 1fr; }
   .lobby-side { position: static; }

@@ -18,7 +18,7 @@ const A = (potencia: number, reflejos: number, aguante: number, instinto: number
 
 export const ARCHETYPES: ArchetypeDef[] = [
   { key: 'equilibrado', name: 'Equilibrado', description: 'Sin puntos débiles ni fuertes. Se adapta a todo.', attributes: A(5, 5, 5, 5, 5, 5, 5), abilities: ['primerosAuxilios', 'forrajeo'], trait: null },
-  { key: 'cazador', name: 'Cazador', description: 'Persigue, golpea y remata. Gana el cuerpo a cuerpo medio.', attributes: A(7, 6, 6, 6, 3, 3, 3), abilities: ['golpeBrutal', 'rastrear'], trait: 'temerario' },
+  { key: 'cazador', name: 'Cazador', description: 'Persigue, golpea y remata. Gana el cuerpo a cuerpo medio.', attributes: A(7, 6, 5, 6, 4, 3, 3), abilities: ['golpeBrutal', 'rastrear'], trait: 'temerario' },
   { key: 'sombra', name: 'Sombra', description: 'Nadie la ve llegar. Si la pillan, cae rápido.', attributes: A(3, 7, 4, 5, 8, 3, 2), abilities: ['camuflaje', 'carrera'], trait: 'solitario' },
   { key: 'superviviente', name: 'Superviviente', description: 'Aguanta más que nadie y siempre encuentra comida.', attributes: A(4, 5, 8, 6, 3, 5, 2), abilities: ['ultimoAliento', 'forrajeo'], trait: 'precavido' },
   { key: 'ingeniero', name: 'Ingeniero', description: 'Empieza débil; termina con arco, trampas y botiquín.', attributes: A(3, 4, 5, 6, 4, 8, 3), abilities: ['trampero', 'primerosAuxilios'], trait: null },

@@ -2,17 +2,18 @@ import { useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import {
   ABILITIES, ABILITY_KEYS, ALLIANCE_POLICY_LABEL, ARCHETYPES, ATTRIBUTE_KEYS, ATTRIBUTES, ATTR_MAX, ATTR_MIN, COMBAT_STRATEGY_LABEL, DEFECTS, DEFECT_KEYS,
-  DERIVED_DISPLAY, DISTRICTS, FRAME_KEYS, FRAME_LABEL, PLAYER_COLORS, TRAITS, TRAIT_KEYS, buildCost, budgetFor, computeDerived, costToReach,
-  describeRequirement, districtById, meetsRequirement, randomSeed, stepCost, summarizeBuild,
-  type AbilityKey, type AttributeKey, type Attributes, type Character, type DerivedStats,
+  DERIVED_DISPLAY, DISTRICTS, FRAME_KEYS, FRAME_LABEL, MOVEMENT_PERKS, PLAYER_COLORS, TRAITS, TRAIT_KEYS, buildCost, budgetFor, computeDerived, costToReach,
+  describeRequirement, districtById, explainDerived, hasSource, meetsRequirement, randomSeed, situationalModifiersFor, sourceLabel, stepCost, summarizeBuild,
+  type AbilityKey, type AttributeKey, type Attributes, type Character, type DerivedInput, type DerivedKey, type DerivedStats, type SituationalKey,
 } from '@ceniza/shared';
+import { StrengthTab } from './StrengthTab';
 import { Portrait, Segmented } from '../../components/ui';
 import { PhotoPicker } from '../photos/photoWidgets';
 import { useTemplates } from '../../lib/queries';
 
 const ATTR_NAMES = Object.fromEntries(ATTRIBUTE_KEYS.map((k) => [k, ATTRIBUTES[k].name])) as Record<AttributeKey, string>;
 
-export type EditorTab = 'identidad' | 'atributos' | 'habilidades' | 'estrategia';
+export type EditorTab = 'identidad' | 'atributos' | 'habilidades' | 'estrategia' | 'prueba';
 
 export function CharacterEditor({ value, onChange, budget, mode }: { value: Character; onChange: (c: Character) => void; budget: number; mode: 'template' | 'room' | 'bot' }) {
   const [tab, setTab] = useState<EditorTab>('atributos');
@@ -40,6 +41,7 @@ export function CharacterEditor({ value, onChange, budget, mode }: { value: Char
               ['atributos', 'Atributos'],
               ['habilidades', 'Habilidades y rasgos'],
               ['estrategia', 'Estrategia'],
+              ['prueba', 'Prueba de fuerza'],
             ] as [EditorTab, string][]
           ).map(([k, l]) => (
             <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
@@ -52,6 +54,7 @@ export function CharacterEditor({ value, onChange, budget, mode }: { value: Char
           {tab === 'atributos' && <AttributesTab c={value} onChange={onChange} budget={budget} />}
           {tab === 'habilidades' && <AbilitiesTab c={value} set={set} />}
           {tab === 'estrategia' && <StrategyTab c={value} set={set} />}
+          {tab === 'prueba' && <StrengthTab c={value} />}
         </div>
       </div>
     </div>
@@ -242,7 +245,8 @@ function AttributesTab({ c, onChange, budget }: { c: Character; onChange: (c: Ch
     [templates],
   );
   const cmp = compareOptions.find((o) => o.key === compareKey);
-  const derived = computeDerived({ attributes: c.attributes, district: c.district, trait: c.trait, defect: c.defect, abilities: c.abilities });
+  const input: DerivedInput = { attributes: c.attributes, district: c.district, trait: c.trait, defect: c.defect, abilities: c.abilities };
+  const derived = computeDerived(input);
   const derivedCmp = cmp ? computeDerived({ attributes: cmp.attrs, district: cmp.district, trait: cmp.trait, defect: cmp.defect, abilities: cmp.abilities }) : null;
   const def = ATTRIBUTES[focus];
 
@@ -338,8 +342,9 @@ function AttributesTab({ c, onChange, budget }: { c: Character; onChange: (c: Ch
         </div>
         <div className="compare-layout">
           <Radar a={c.attributes} b={cmp?.attrs} />
-          <DerivedTable d={derived} cmp={derivedCmp} />
+          <DerivedTable d={derived} cmp={derivedCmp} input={input} />
         </div>
+        <SituationalEffects input={input} />
       </div>
     </div>
   );
@@ -376,8 +381,29 @@ function Radar({ a, b }: { a: Attributes; b?: Attributes }) {
   );
 }
 
-function DerivedTable({ d, cmp }: { d: DerivedStats; cmp: DerivedStats | null }) {
+const comma = (n: number, digits = 2) => n.toFixed(digits).replace('.', ',');
+
+/** «×1,12», «+15 %» o «+10», según cómo se lea mejor el efecto. */
+function effectText(op: 'mult' | 'add', v: number, asPercent: boolean): string {
+  if (op === 'mult') return `×${comma(v)}`;
+  const sign = v >= 0 ? '+' : '−';
+  const abs = Math.abs(v);
+  if (asPercent) return `${sign}${Math.round(abs * 100)}\u00a0%`;
+  return `${sign}${comma(abs, Number.isInteger(abs) ? 0 : 2)}`;
+}
+
+const EXTRA_LABEL: Partial<Record<SituationalKey, string>> = {
+  damageMult: 'Daño',
+  damageTakenMult: 'Daño recibido',
+  hitBonus: 'Acierto',
+  fleeBonus: 'Huida',
+  statusDurationMult: 'Duración de los estados',
+};
+const statLabel = (k: SituationalKey) => DERIVED_DISPLAY.find((x) => x.key === k)?.label ?? EXTRA_LABEL[k] ?? k;
+
+function DerivedTable({ d, cmp, input }: { d: DerivedStats; cmp: DerivedStats | null; input: DerivedInput }) {
   const groups = [...new Set(DERIVED_DISPLAY.map((x) => x.group))];
+  const [open, setOpen] = useState<DerivedKey | null>(null);
   return (
     <div className="derived">
       {groups.map((g) => (
@@ -387,18 +413,84 @@ function DerivedTable({ d, cmp }: { d: DerivedStats; cmp: DerivedStats | null })
             const v = d[x.key];
             const delta = cmp ? v - cmp[x.key] : 0;
             const better = delta === 0 ? null : x.higherIsBetter ? delta > 0 : delta < 0;
+            const expanded = open === x.key;
             return (
-              <div key={x.key} className="derived-row">
-                <span>{x.label}</span>
-                <span className="num">
-                  {x.format(v)}
-                  {cmp && Math.abs(delta) > 1e-9 && <em className={better ? 'up' : 'down'}>{better ? '▲' : '▼'}</em>}
-                </span>
+              <div key={x.key} className="derived-item">
+                <button
+                  type="button"
+                  className="derived-row"
+                  aria-expanded={expanded}
+                  aria-controls={`why-${x.key}`}
+                  onClick={() => setOpen(expanded ? null : x.key)}
+                >
+                  <span>{x.label}</span>
+                  <span className="num">
+                    {x.format(v)}
+                    {cmp && Math.abs(delta) > 1e-9 && <em className={better ? 'up' : 'down'}>{better ? '▲' : '▼'}</em>}
+                  </span>
+                </button>
+                {expanded && <Why id={`why-${x.key}`} input={input} k={x.key} format={x.format} />}
               </div>
             );
           })}
         </div>
       ))}
+      <p className="hint derived-hint">Pulsa una estadística para ver de dónde sale.</p>
+    </div>
+  );
+}
+
+function Why({ id, input, k, format }: { id: string; input: DerivedInput; k: DerivedKey; format: (v: number) => string }) {
+  const b = explainDerived(input, k);
+  const asPercent = format(0.5).includes('%');
+  return (
+    <div id={id} className="why">
+      <p className="why-formula">{b.formula}</p>
+      {b.lines.length === 0 ? (
+        <p className="small faint">Solo depende de los atributos: ni el distrito, ni las habilidades, ni el rasgo la cambian.</p>
+      ) : (
+        <dl className="why-lines">
+          <div>
+            <dt>Con tus atributos</dt>
+            <dd className="num">{format(b.base)}</dd>
+          </div>
+          {b.lines.map((l) => (
+            <div key={l.label}>
+              <dt>{l.label}</dt>
+              <dd className="num">{effectText(l.op, l.value, asPercent)}</dd>
+            </div>
+          ))}
+          <div className="why-total">
+            <dt>Total</dt>
+            <dd className="num">{format(b.total)}</dd>
+          </div>
+        </dl>
+      )}
+    </div>
+  );
+}
+
+/** Lo que cambia según el terreno, la actividad o el momento del combate. */
+function SituationalEffects({ input }: { input: DerivedInput }) {
+  const mods = situationalModifiersFor(input);
+  const perks = MOVEMENT_PERKS.filter((p) => hasSource(input, p.source));
+  if (mods.length === 0 && perks.length === 0) return null;
+  return (
+    <div className="situational">
+      <h4>Según la situación</h4>
+      <ul>
+        {perks.map((p) => (
+          <li key={`${sourceLabel(p.source)}-${p.text}`}>
+            <span className="faint">{sourceLabel(p.source)}</span> {p.text}
+          </li>
+        ))}
+        {mods.map((m) => (
+          <li key={`${sourceLabel(m.source)}-${m.stat}-${m.text}`}>
+            <span className="faint">{sourceLabel(m.source)}</span> {statLabel(m.stat)} {effectText(m.op, m.value, m.op === 'add' && Math.abs(m.value) < 1)}{' '}
+            {m.text}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
