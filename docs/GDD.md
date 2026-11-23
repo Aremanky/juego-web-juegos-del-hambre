@@ -225,7 +225,7 @@ Para quien no quiere complicarse; el editor los muestra comparados con tu repart
 | Arquetipo | Pot | Ref | Agu | Ins | Sig | Ing | Car |
 |---|---|---|---|---|---|---|---|
 | Equilibrado | 5 | 5 | 5 | 5 | 5 | 5 | 5 |
-| Cazador | 7 | 6 | 6 | 6 | 3 | 3 | 3 |
+| Cazador | 7 | 6 | 5 | 6 | 4 | 3 | 3 |
 | Sombra | 3 | 7 | 4 | 5 | 8 | 3 | 2 |
 | Superviviente | 4 | 5 | 8 | 6 | 3 | 5 | 2 |
 | Ingeniero | 3 | 4 | 5 | 6 | 4 | 8 | 3 |
@@ -415,23 +415,28 @@ GPU (§17):
 
 ### 7.2 Biomas
 
+Los biomas que ya existen en la partida (pradera, orilla, bosque, bosque denso, roca, montaña, cumbre, lago y la
+explanada del Obelisco) usan las cifras de `packages/shared/src/game/terrain.ts`. Las cifras de visión del
+código (bosque ×0,85 y ×0,7, altura ×1,15 y ×1,3) son más suaves que las del primer borrador de esta tabla; se
+revisarán en la fase 7, cuando el mapa tenga caminos, ríos y puntos de interés.
+
 | Bioma | Coste mov. | Visión propia | Cobertura | Recursos | Peligros |
 |---|---|---|---|---|---|
 | Camino | 0,8 | 1,0 | −8 | — | Expuesto |
 | Pradera | 1,0 | 1,0 | −4 | Hierbas, raíces, piedras, caza menor | Expuesto, calor |
-| Playa/orilla | 1,1 | 1,0 | −6 | Agua turbia, conchas, pesca | — |
-| Bosque | 1,4 | 0,75 | +6 | Madera, palos, ramas, bayas, resina, plumas | Incendios, bestias |
-| Bosque denso | 1,8 | 0,55 | +10 | Lo mismo, más rico | Emboscadas |
+| Playa/orilla | 1,1 | 1,0 | −4 | Agua turbia, conchas, pesca | — |
+| Bosque | 1,4 | 0,85 | +6 | Madera, palos, ramas, bayas, resina, plumas | Incendios, bestias |
+| Bosque denso | 1,8 | 0,7 | +10 | Lo mismo, más rico | Emboscadas |
 | Pantano | 2,2 | 0,8 | +6 | Hierbas raras, resina | Enfermedad |
-| Zona rocosa | 1,5 | 1,1 | +3 | Piedra, pedernal, cuevas | Derrumbes |
-| Montaña | 2,5 | 1,4 | 0 | Pedernal, nieve (agua) | Frío nocturno, caídas corriendo |
-| Cumbre | 3,0 | 1,6 | −2 | Nieve | Frío constante |
+| Zona rocosa | 1,5 | 1,0 | +3 | Piedra, pedernal, cuevas | Derrumbes |
+| Montaña | 2,5 | 1,15 | +3 | Pedernal, nieve (agua) | Frío nocturno, caídas corriendo |
+| Cumbre | 3,0 | 1,3 | −4 | Nieve | Frío constante |
 | Río / vado | 2,0 | 1,0 | −4 | Agua, pesca | Corriente |
 | Lago | Nadar 3,0 | 1,0 | −8 | Agua, pesca | Energía, sin acciones |
 | Ruinas | 1,3 | 0,9 | +5 | Chatarra, cuerda, tela, herramientas | Trampas antiguas |
 | Poblado | 1,1 | 0,9 | +4 | Raciones, tela, cuerda, medicinas básicas | Disputado |
 | Instalación | 1,2 | 0,9 | +3 | Medicinas, gafas, explosivos | Defensas automáticas |
-| Obelisco | 1,0 | 1,0 | −6 | El mejor botín | Estallido inicial |
+| Obelisco | 1,0 | 1,0 | −8 | El mejor botín | Estallido inicial |
 | Cueva/refugio | 1,2 | 0,6 | +8 | — | Descanso +50%, protege del clima |
 
 ### 7.3 Evolución de la arena
