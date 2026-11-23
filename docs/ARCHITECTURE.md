@@ -1,7 +1,8 @@
 # Arquitectura técnica
 
-> Fase 2 · Estado: implementada y probada para usuarios, fotos, personajes, salas y lobby.
-> Las piezas de partida (motor, mapa, combate, bots…) se añaden en las fases 4–9 sobre esta base.
+> Fases 2–4 · Estado: implementada y probada para usuarios, fotos, personajes, salas, lobby y el motor de partida
+> en tiempo real (inicio, sincronización, movimiento, pausa por votación, desconexiones y reinicios).
+> Mapa ilustrado, combate, inventario, eventos e IA de bots se añaden en las fases 5–9 sobre esta base.
 
 ## Visión general
 
@@ -12,9 +13,9 @@
 │  · React Query (REST)        │                 │            │ http://127.0.0.1:3000           │
 │  · Zustand (estado de sala)  │                 │ ┌──────────▼─────────────────────────────┐   │
 │  · socket.io-client          │                 │ │ Node 22 · Fastify 5 · Socket.IO 4      │   │
-│  · (fase 7) PixiJS para mapa │                 │ │  REST: auth, fotos, plantillas, salas  │   │
-│  · (fase 10) ONNX/WebGPU     │                 │ │  Tiempo real: lobby y chat (luego: partida) │
-└──────────────────────────────┘                 │ │  RoomManager → RoomRuntime (memoria)   │   │
+│  · Canvas 2D (fase 7: PixiJS)│                 │ │  REST: auth, fotos, plantillas, salas  │   │
+│  · (fase 10) ONNX/WebGPU     │                 │ │  Tiempo real: lobby, chat y partida    │   │
+└──────────────────────────────┘                 │ │  RoomManager → RoomRuntime → Match     │   │
                                                  │ └───────┬───────────────────────┬────────┘   │
                                                  │   PostgreSQL 16           /var/lib/ceniza    │
                                                  │   (Drizzle ORM)           (fotos en disco)   │
@@ -30,6 +31,7 @@ se acepta desde el navegador.
 | Paquete | Contenido |
 |---|---|
 | `packages/shared` | Reglas del juego y contratos: atributos y fórmulas (`derived.ts`), habilidades, rasgos, defectos, distritos, arquetipos, personalidades/dificultades de bots, fábrica de bots, generador de retratos SVG, PRNG serializable, esquemas zod de API/sockets y tipos del estado del lobby. Lo usan servidor y cliente: la vista previa del editor calcula exactamente lo mismo que el servidor. |
+| `packages/engine` | Simulación de la partida sin E/S: generador de mapa por semilla, A* con coste de terreno, rutas con hora de llegada, tick a 10 Hz, intenciones, pausa por votación, desconexiones, vista por jugador (`computeView`), instantáneas con el PRNG. Lo usan el servidor (autoridad) y el cliente (decodificar el mapa e interpolar rutas). |
 | `apps/server` | Fastify + Socket.IO + Drizzle. Módulos independientes en `src/modules/*`. |
 | `apps/web` | SPA React. `src/features/*` por pantalla, `src/components` comunes, `src/styles` sistema visual. |
 | `deploy/` | systemd, Caddy, Nginx, cloudflared y scripts de instalación, actualización, copias y restauración. |
@@ -43,9 +45,9 @@ se acepta desde el navegador.
 | Fotografías | `modules/photos` | Subida, validación, normalización, recortes, servido protegido | ✅ |
 | Personajes | `modules/characters` | Plantillas, validación de build, propiedad de fotos | ✅ |
 | Salas y lobby | `modules/rooms` | Repositorio SQL, `RoomRuntime` en memoria, `RoomManager` | ✅ |
-| Chat | `modules/chat` | Global y de sala (persistido) | ✅ (partida: fase 4) |
+| Chat | `modules/chat` | Global y de sala (persistido); en partida según la configuración de sala | ✅ |
 | Tiempo real | `realtime/io.ts` | Autenticación de sockets, envoltorio de eventos, presencia | ✅ |
-| Motor de partida | `packages/engine` (fase 4) | Tick, intenciones, instantáneas, sincronización | ⏳ |
+| Partidas | `packages/engine` + `modules/matches` | Mundo, bucle a 10 Hz, fotogramas por jugador a 5 Hz, instantáneas, eventos | ✅ |
 | Mapa, movimiento, inventario, combate, alianzas, eventos, bots IA, historial, administración | fases 5–10 | Ver GDD | ⏳ |
 
 ## Salas: concurrencia y consistencia
@@ -80,12 +82,19 @@ Todos los eventos cliente → servidor usan confirmación: `Ack<T> = { ok: true,
 | `lobby:addBot {cid}` / `lobby:updateBot` / `lobby:rerollBot` / `lobby:removeBot` | Bots |
 | `lobby:kick` / `lobby:transferHost` / `lobby:updateConfig` | Anfitrión |
 | `chat:send {channel, body}` / `chat:history {channel}` | Chat |
+| `lobby:forceStart` | El anfitrión empieza sin esperar a que todos estén preparados |
+| `match:move {x, y}` / `match:stop` | Ir a una casilla / parar al acabar el paso en curso |
+| `match:pause` / `match:vote {yes}` / `match:resume {ready}` | Pausa por votación y reanudación |
+| `match:forfeit` / `match:sync` | Abandonar la partida / pedir la instantánea completa |
 
 | Servidor → cliente | Uso |
 |---|---|
 | `lobby:state` | Estado completo filtrado (versión creciente) |
 | `room:kicked`, `room:closed` | Fin de la membresía |
 | `chat:message`, `notify` | Mensajes y avisos |
+| `match:snapshot` | Mapa, reloj, personajes visibles y estado de pausa (al entrar, reconectar o cambiar de sala) |
+| `match:frame` | Fotograma incremental a 5 Hz: solo los personajes que han cambiado para ese destinatario |
+| `match:event` | Avisos de la partida (fases, caídas, pausas, conexiones, final) |
 
 Límite por socket: cubo de 25 fichas (10/s) y chat 5 (1,2/s). Carga máxima por mensaje: 256 KB.
 
@@ -100,6 +109,9 @@ Límite por socket: cubo de 25 fichas (10/s) y chat 5 (1,2/s). Carga máxima por
 | `rooms` | Código, nombre, anfitrión, estado, configuración |
 | `room_participants` | Humanos y bots, personaje, plaza, listo, estado (activo/salió/expulsado) |
 | `chat_messages` | Global y por sala |
+| `matches` | Una por partida: semilla, configuración, estado, instantánea completa del mundo (PRNG incluido), ganador |
+| `match_participants` | Personaje congelado al empezar, plaza, puesto final, causa y momento de la caída |
+| `match_events` | Registro de cada evento con su tick y su hora de juego (base del historial y la cronología) |
 
 Fotos en disco: `UPLOAD_DIR/photos/<usuario>/<foto>/original.webp`, `thumb.webp`, `avatar.vN.webp` (512 px)
 y `marker.vN.webp` (160 px). El original normalizado (≤2048 px, orientación EXIF aplicada, sin metadatos) se
@@ -127,6 +139,7 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
 | Nivel | Dónde | Cómo |
 |---|---|---|
 | Unitarias | `packages/shared/src/**/*.test.ts` | `npm test -w @ceniza/shared` |
+| Motor (determinismo, rutas, pausa, niebla, instantáneas) | `packages/engine/src/*.test.ts` | `npm test -w @ceniza/engine` |
 | Integración (BD real + varios sockets) | `apps/server/test` | `npm test -w @ceniza/server` (usa `ceniza_test`) |
 | Extremo a extremo (Chrome, 2 usuarios, escritorio + móvil) | `e2e/` | `npm run build -w @ceniza/web && npm run test:e2e` |
 
@@ -150,13 +163,29 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
 4. Persiste lo que deba sobrevivir a un reinicio; añade la migración con `npm run db:generate`.
 5. Prueba con varios clientes (`apps/server/test`) y, si tiene interfaz, añade el paso al E2E.
 
-## Plan del motor (fase 4)
+## Motor de partida (fase 4)
 
-- `packages/engine`: estado del mundo serializable, tick a 10 Hz, cola de intenciones aplicada al inicio de
-  cada tick, PRNG con estado guardado.
-- Inicio desde el lobby (automático al estar todos listos o forzado por el anfitrión), asignación de plazas libres,
-  cuenta atrás y presentación.
-- Sincronización: instantánea al entrar o reconectar, deltas agregados a 5 Hz, movimiento como segmentos de ruta
-  para que el cliente interpole sin saltos.
-- Persistencia: tablas `matches`, `match_participants`, `match_events`; instantánea cada 10 s y al apagar; tras un
-  reinicio, la partida vuelve en pausa hasta que todos pulsan «Listo».
+- **Mundo** (`packages/engine/src/world.ts`): mapa por semilla, personajes con su velocidad y visión derivadas del
+  personaje, reloj de juego que solo avanza fuera de pausa, fase (`presentacion` → `cuenta_atras` → `en_curso` →
+  `terminada`) y PRNG con estado. Todo es datos planos: `serializeWorld` / `restoreWorld` lo guardan y lo recuperan
+  exactamente igual (comprobado con una prueba de hash).
+- **Tick a 10 Hz** en el servidor (`MatchRuntime`). Las intenciones se validan contra el mundo en cuanto llegan; como
+  Node es de un solo hilo, nunca se intercalan con un tick, y cada evento queda registrado con su tick.
+- **Movimiento**: el servidor calcula la ruta (A* con coste de terreno) y la convierte en casillas con hora de
+  llegada. El cliente interpola esa ruta con un reloj sincronizado, así que se ve fluido a 60 fps aunque los
+  fotogramas lleguen a 5 Hz. Una orden nueva a mitad de paso termina ese paso primero: nunca hay teletransportes.
+- **Vista por jugador**: `computeView` filtra lo que ve cada uno. Con niebla, un vivo solo ve a quien está dentro
+  de su radio de visión; de los demás solo se envía el paso en curso y el siguiente, nunca su destino. Los bots
+  usarán esta misma función (fase 6).
+- **Fotogramas**: por cada socket se guarda lo último enviado y solo se mandan los personajes que han cambiado,
+  más el reloj cada 2 s para corregir la deriva.
+- **Pausa por votación**: votan los humanos vivos y conectados (mayoría o unanimidad). La votación caduca a los 30 s.
+  En pausa se reanuda cuando todos los conectados pulsan «Listo», con 3 s de cuenta atrás.
+- **Desconexiones** (configuración de sala): piloto automático, a cubierto, o eliminación tras los minutos de
+  gracia (contados en tiempo de juego, así una pausa no castiga). Al volver, el jugador recupera el control.
+- **Instantáneas**: cada 10 s, en cada cambio de fase y al apagar el servidor. Tras un reinicio, o si la sala se
+  descarga de memoria por estar vacía, la partida vuelve en pausa con el mismo mundo.
+- **Piloto provisional**: hasta la IA de la fase 6, bots y desconectados en piloto eligen destinos cercanos y
+  caminan usando la misma API de intenciones que un humano.
+- **Final**: abandonar o quedar fuera por desconexión fija el puesto; con uno solo en pie, gana. Se guardan los
+  puestos, el ganador y la instantánea final, y los participantes pueden volver a ver el resultado.

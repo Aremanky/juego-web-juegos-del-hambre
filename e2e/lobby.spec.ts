@@ -113,13 +113,6 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await expect(b.locator('.slot.mine')).toBeVisible();
   await shot(b, '10-sala-movil');
 
-  // ── Ambos se preparan
-  await b.getByRole('tab', { name: 'Mi personaje' }).click();
-  await b.getByRole('button', { name: 'Estoy listo' }).click();
-  await a.getByRole('button', { name: 'Estoy listo' }).click();
-  await expect(a.getByText('Todos preparados.')).toBeVisible();
-  await expect(b.getByText('Todos preparados.')).toBeVisible();
-
   // ── Chat de sala en tiempo real
   await b.getByRole('tab', { name: 'Chat' }).click();
   await b.getByLabel('Mensaje').fill('¡Que empiecen los juegos!');
@@ -143,6 +136,54 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await fresh.goto('/');
   await expect(fresh).toHaveURL(/\/menu$/);
   await expect(fresh.getByText('Tus salas abiertas')).toBeVisible();
+  await fresh.close();
+
+  // ── Ambos se preparan: cuenta atrás de sala y empieza la partida sola
+  await b.getByRole('button', { name: 'Estoy listo' }).click();
+  await a.getByRole('button', { name: 'Estoy listo' }).click();
+  await expect(a.getByText(/La partida empieza en/)).toBeVisible();
+  await expect(b.getByText(/La partida empieza en/)).toBeVisible();
+
+  // ── Fase 4: presentación, cuenta atrás y arena en tiempo real
+  await expect(a.getByRole('heading', { name: 'Los Elegidos' })).toBeVisible({ timeout: 10_000 });
+  await expect(b.locator('.map-canvas')).toBeVisible();
+  await a.waitForTimeout(900);
+  await shot(a, '13-presentacion');
+  await expect(a.getByText(/Nadie se mueve hasta el final/)).toBeVisible({ timeout: 10_000 });
+  await expect(a.getByText('Toca una casilla para ir.', { exact: false })).toBeVisible({ timeout: 10_000 });
+  await expect(b.getByText('Toca una casilla para ir.', { exact: false })).toBeVisible();
+
+  // Un toque en el mapa es una orden de ir: aparece «Parar» mientras camina.
+  const box = (await a.locator('.map-canvas').boundingBox())!;
+  await a.mouse.click(box.x + box.width / 2 + 70, box.y + box.height / 2 + 40);
+  await expect(a.getByRole('button', { name: 'Parar' })).toBeVisible();
+  await a.waitForTimeout(700);
+  await shot(a, '14-partida-escritorio', false);
+  await shot(b, '15-partida-movil');
+
+  // Pausa por votación: propone una, vota la otra y se reanuda cuando las dos pulsan «Listo».
+  await a.getByRole('button', { name: 'Proponer pausa' }).click();
+  await expect(b.locator('.vote-box').getByText(/propone una pausa/)).toBeVisible();
+  await b.getByRole('button', { name: 'Pausar', exact: true }).click();
+  await expect(a.getByRole('heading', { name: 'Partida en pausa' })).toBeVisible();
+  await expect(b.getByRole('heading', { name: 'Partida en pausa' })).toBeVisible();
+  await a.waitForTimeout(400);
+  await shot(a, '16-pausa');
+  await a.getByRole('button', { name: 'Listo para seguir' }).click();
+  await b.getByRole('button', { name: 'Listo para seguir' }).click();
+  await expect(a.getByText(/Se reanuda en/)).toBeVisible();
+  await expect(a.getByRole('heading', { name: 'Partida en pausa' })).toBeHidden({ timeout: 8000 });
+
+  // Recargar a mitad de partida devuelve a la arena con la instantánea completa.
+  await b.reload();
+  await expect(b.locator('.map-canvas')).toBeVisible();
+  await expect(b.getByText('Toca una casilla para ir.', { exact: false })).toBeVisible();
+
+  // Abandonar deja a la amiga fuera, mirando, con su puesto en la lista.
+  await b.getByRole('button', { name: 'Abandonar la partida' }).click();
+  await b.getByRole('button', { name: /Quedarás fuera/ }).click();
+  await expect(b.getByText('Estás fuera de la arena, pero puedes seguir mirando.')).toBeVisible();
+  await expect(a.getByText(/Ha abandonado · puesto 4/)).toBeVisible();
 
   await ctxA.close();
   await ctxB.close();

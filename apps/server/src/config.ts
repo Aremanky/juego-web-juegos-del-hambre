@@ -32,6 +32,11 @@ const EnvSchema = z.object({
   STATIC_DIR: z.string().default('../web/dist'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   EXTRA_ALLOWED_ORIGINS: z.string().default(''),
+  // Tiempos de partida (ms). Se acortan en las pruebas.
+  MATCH_LOBBY_COUNTDOWN_MS: z.coerce.number().int().min(0).max(60_000).default(5000),
+  MATCH_PRESENTATION_MS: z.coerce.number().int().min(0).max(120_000).default(8000),
+  MATCH_COUNTDOWN_MS: z.coerce.number().int().min(0).max(60_000).default(15_000),
+  MATCH_SNAPSHOT_MS: z.coerce.number().int().min(1000).max(120_000).default(10_000),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -60,5 +65,11 @@ export const config = {
   adminUsernames: new Set(env.ADMIN_USERNAMES.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)),
   extraOrigins: new Set(env.EXTRA_ALLOWED_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)),
   sessionTtlMs: env.SESSION_TTL_DAYS * 24 * 3600 * 1000,
+  matchTimings: {
+    lobbyCountdownMs: env.MATCH_LOBBY_COUNTDOWN_MS,
+    presentationMs: env.MATCH_PRESENTATION_MS,
+    countdownMs: env.MATCH_COUNTDOWN_MS,
+    snapshotMs: env.MATCH_SNAPSHOT_MS,
+  },
 };
 export type AppConfig = typeof config;

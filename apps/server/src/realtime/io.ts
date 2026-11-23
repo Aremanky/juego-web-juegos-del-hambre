@@ -8,6 +8,9 @@ import {
   ChatSendSchema,
   JoinRoomPayload,
   KickPayload,
+  MovePayload,
+  ResumePayload,
+  VotePayload,
   RemoveBotPayload,
   RerollBotPayload,
   SetCharacterPayload,
@@ -143,12 +146,24 @@ export function createRealtime(app: FastifyInstance, ctx: AppContext): AppServer
     on('lobby:kick', KickPayload, async (p) => room().kick(socket.data.user, p.participantId));
     on('lobby:updateConfig', UpdateConfigPayload, async (p) => room().updateConfig(socket.data.user, p.patch, p.name));
     on('lobby:transferHost', TransferHostPayload, async (p) => room().transferHost(socket.data.user, p.userId));
+    on('lobby:forceStart', z.object({}), async () => room().forceStart(socket.data.user));
+    // Partida: el servidor valida cada intención contra el mundo (autoridad total).
+    on('match:move', MovePayload, async ({ x, y }) => room().requireMatch().move(socket.data.user.id, x, y));
+    on('match:stop', z.object({}), async () => room().requireMatch().stopMoving(socket.data.user.id));
+    on('match:pause', z.object({}), async () => room().requireMatch().pause(socket.data.user.id));
+    on('match:vote', VotePayload, async ({ yes }) => room().requireMatch().vote(socket.data.user.id, yes));
+    on('match:resume', ResumePayload, async ({ ready }) => room().requireMatch().resume(socket.data.user.id, ready));
+    on('match:forfeit', z.object({}), async () => room().requireMatch().forfeit(socket.data.user.id));
+    on('match:sync', z.object({}), async () => room().requireMatch().snapshot(socket.data.user.id));
 
     on('chat:send', ChatSendSchema, async ({ channel, body }) => {
       if (!chatBucket.take()) throw new AppError('rate_limited', 'Vas muy rápido. Espera un segundo.');
       const u = socket.data.user;
       if (channel === 'room') {
         const rt = room();
+        if (rt.status === 'in_game' && rt.config.matchChat !== 'todos') {
+          throw invalidState(rt.config.matchChat === 'desactivado' ? 'El chat está desactivado durante la partida.' : 'Durante la partida, en esta sala solo se habla dentro de una alianza.');
+        }
         const msg = await ctx.chat.post('room', rt.id, u, body);
         io.to(roomChannel(rt.id)).emit('chat:message', msg);
       } else {

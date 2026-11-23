@@ -31,6 +31,9 @@ import { portraitPhotoIds, withPhotoVersions } from '../characters/service';
 import type { PhotoService } from '../photos/service';
 import type { ChatService } from '../chat/service';
 import type { ParticipantRow, RoomRepository, RoomRow } from './repository';
+import { MAP_SIZES, createWorld, serializeWorld, setConnected } from '@ceniza/engine';
+import type { MatchRepository } from '../matches/repository';
+import { MatchRuntime, type MatchDeps, type MatchHost, type MatchTimings } from '../matches/runtime';
 
 /** Lo mínimo que el lobby necesita del transporte en tiempo real (desacoplado de Socket.IO para poder probarlo). */
 export interface RoomIO {
@@ -46,6 +49,8 @@ export interface RuntimeDeps {
   chat: ChatService;
   io: RoomIO;
   log: { warn(obj: unknown, msg?: string): void; error(obj: unknown, msg?: string): void };
+  matches: MatchRepository;
+  timings: MatchTimings;
   hostOfflineTransferMs?: number;
 }
 
@@ -87,6 +92,10 @@ export class RoomRuntime {
   private cids = new Map<string, Promise<unknown>>();
   private lastAddBotAt = new Map<string, number>();
   private broadcastPending = false;
+  /** Partida en curso o terminada (para enseñar el resultado). */
+  match: MatchRuntime | null = null;
+  private countdownTimer: NodeJS.Timeout | null = null;
+  private countdownEndsAt: number | null = null;
 
   private constructor(
     private readonly deps: RuntimeDeps,
@@ -106,6 +115,17 @@ export class RoomRuntime {
     const { rows, names } = await deps.repo.activeParticipants(room.id);
     for (const r of rows) rt.participants.set(r.id, rt.toPState(r, names));
     if (room.status === 'lobby' || room.status === 'starting') rt.hostOfflineSince = Date.now();
+    if (room.status === 'in_game' || room.status === 'finished') {
+      const row = room.status === 'in_game' ? await deps.matches.active(room.id) : await deps.matches.latest(room.id);
+      if (row) {
+        rt.match = MatchRuntime.restore(row, rt.matchHost(), rt.matchDeps());
+        rt.match.start();
+      } else if (room.status === 'in_game') {
+        // Estado incoherente (sala en juego sin partida guardada): vuelve al lobby.
+        rt.status = 'lobby';
+        await deps.repo.updateRoom(room.id, { status: 'lobby' });
+      }
+    }
     return rt;
   }
 
@@ -132,9 +152,11 @@ export class RoomRuntime {
     this.socketUsers.delete(socketId);
     const set = this.presence.get(userId);
     set?.delete(socketId);
+    this.match?.detach(socketId);
     if (set && set.size === 0) {
       this.presence.delete(userId);
       if (userId === this.hostUserId) this.hostOfflineSince = Date.now();
+      this.match?.userPresence(userId, false);
     }
     this.lastActivity = Date.now();
     this.scheduleBroadcast();
@@ -145,6 +167,7 @@ export class RoomRuntime {
       if (notice) this.deps.io.emitToSocket(socketId, notice.event, notice.payload);
       this.deps.io.leaveChannel(socketId, roomChannel(this.id));
       this.socketUsers.delete(socketId);
+      this.match?.detach(socketId);
     }
     this.presence.delete(userId);
   }
@@ -162,6 +185,7 @@ export class RoomRuntime {
         if (!st) cache.set(userId, (st = this.stateFor(userId)));
         this.deps.io.emitToSocket(socketId, 'lobby:state', st);
       }
+      this.evaluateAutoStart();
     });
   }
 
@@ -294,20 +318,34 @@ export class RoomRuntime {
   }
 
   // ------------------------------------------------------------------ estado filtrado por destinatario
-  stateFor(userId: string): LobbyState {
-    const me = this.humanOf(userId) ?? null;
-    const isHost = userId === this.hostUserId;
-    const participants = [...this.participants.values()].sort((a, b) => a.joinedAt - b.joinedAt).map((p) => this.participantDTO(p, userId));
-    const humans = this.humans();
+  /** Lo que impide empezar aunque lo fuerce el anfitrión. */
+  private forceReasons(): string[] {
     const reasons: string[] = [];
+    if (this.status !== 'lobby') reasons.push('La partida ya ha empezado.');
     if (this.participants.size < 2) reasons.push('Hacen falta al menos 2 participantes (puedes añadir bots).');
+    const noChar = this.humans().filter((h) => !h.character || !summarizeBuild(h.character, this.config.attributePoints).valid);
+    if (noChar.length) reasons.push(`Sin personaje válido: ${noChar.map((p) => p.displayName ?? 'alguien').join(', ')}.`);
+    return reasons;
+  }
+
+  /** Lo que impide el inicio automático: además, todos preparados y conectados. */
+  private startReasons(): string[] {
+    const reasons = this.forceReasons().filter((r) => r !== 'La partida ya ha empezado.');
     const label = (p: PState) => p.displayName ?? 'alguien';
-    const noChar = humans.filter((h) => !h.character || !summarizeBuild(h.character, this.config.attributePoints).valid);
-    if (noChar.length) reasons.push(`Sin personaje válido: ${noChar.map(label).join(', ')}.`);
+    const humans = this.humans();
     const notReady = humans.filter((h) => !h.ready);
     if (notReady.length) reasons.push(`Falta que se preparen: ${notReady.map(label).join(', ')}.`);
     const offline = humans.filter((h) => h.userId && !this.isOnline(h.userId));
     if (offline.length) reasons.push(`Desconectados: ${offline.map(label).join(', ')}.`);
+    return reasons;
+  }
+
+  stateFor(userId: string): LobbyState {
+    const me = this.humanOf(userId) ?? null;
+    const isHost = userId === this.hostUserId;
+    const participants = [...this.participants.values()].sort((a, b) => a.joinedAt - b.joinedAt).map((p) => this.participantDTO(p, userId));
+    const reasons = this.startReasons();
+    const forceReasons = this.forceReasons();
 
     const bots = this.bots();
     const mine = bots.filter((b) => b.addedByUserId === userId).length;
@@ -317,7 +355,7 @@ export class RoomRuntime {
       room: { id: this.id, code: this.code, name: this.name, status: this.status, hostUserId: this.hostUserId, config: this.config, createdAt: this.createdAt.toISOString() },
       participants,
       me: { userId, participantId: me?.id ?? null, isHost },
-      start: { canStart: reasons.length === 0, reasons, countdownEndsAt: null },
+      start: { canStart: reasons.length === 0, reasons, countdownEndsAt: this.countdownEndsAt, canForce: isHost && forceReasons.length === 0, forceReasons },
       bots: { total: bots.length, mine, canAdd: botReason === null, reason: botReason },
     };
   }
@@ -363,9 +401,10 @@ export class RoomRuntime {
   // ------------------------------------------------------------------ comandos
   join(user: SessionUser, socketId: string): Promise<LobbyState> {
     return this.queue.run(async () => {
-      if (this.status === 'closed' || this.status === 'finished') throw notFound('Esta sala ya no está disponible');
+      if (this.status === 'closed') throw notFound('Esta sala ya no está disponible');
       let p = this.humanOf(user.id);
       if (!p) {
+        if (this.status === 'finished') throw notFound('Esta sala ya no está disponible');
         const prev = await this.deps.repo.findHumanRow(this.id, user.id);
         if (prev?.status === 'kicked') throw forbidden('Te han expulsado de esta sala');
         if (this.status !== 'lobby') throw invalidState('La partida ya ha empezado');
@@ -376,6 +415,10 @@ export class RoomRuntime {
         p.displayName = user.displayName;
       }
       this.attach(user.id, socketId);
+      if (this.match) {
+        this.match.attach(socketId, user.id);
+        this.match.userPresence(user.id, true);
+      }
       this.lastActivity = Date.now();
       this.scheduleBroadcast();
       return this.stateFor(user.id);
@@ -421,6 +464,13 @@ export class RoomRuntime {
   leave(user: SessionUser): Promise<void> {
     return this.queue.run(async () => {
       const p = this.requireHuman(user.id);
+      if (this.status === 'in_game' || this.status === 'finished') {
+        if (this.match && !this.match.finished && this.match.world.actors.some((a) => a.id === p.id && a.alive)) this.match.forfeit(user.id);
+        this.detachUser(user.id);
+        this.match?.userPresence(user.id, false);
+        this.scheduleBroadcast();
+        return;
+      }
       await this.deps.repo.updateParticipant(p.id, { status: 'left', leftAt: new Date(), ready: false, slotDistrict: null });
       this.participants.delete(p.id);
       this.detachUser(user.id);
@@ -701,5 +751,127 @@ export class RoomRuntime {
   get counts() {
     const bots = this.bots().length;
     return { humans: this.participants.size - bots, bots };
+  }
+
+  // ------------------------------------------------------------------ inicio de partida
+  private evaluateAutoStart() {
+    if (this.status !== 'lobby') return;
+    const ok = this.config.autoStart && this.startReasons().length === 0;
+    if (ok && this.countdownEndsAt == null) {
+      const ms = this.deps.timings.lobbyCountdownMs;
+      this.countdownEndsAt = Date.now() + ms;
+      this.countdownTimer = setTimeout(() => {
+        void this.queue.run(() => this.countdownFired()).catch((e) => this.deps.log.error({ err: e }, 'no se pudo empezar la partida'));
+      }, ms);
+      this.countdownTimer.unref();
+      void this.system(`Todos preparados: la partida empieza en ${Math.max(1, Math.round(ms / 1000))} s.`);
+      this.scheduleBroadcast();
+    } else if (!ok && this.countdownEndsAt != null) {
+      this.cancelCountdown('Se cancela la cuenta atrás.');
+    }
+  }
+
+  private cancelCountdown(message?: string) {
+    if (this.countdownTimer) clearTimeout(this.countdownTimer);
+    this.countdownTimer = null;
+    this.countdownEndsAt = null;
+    if (message) void this.system(message);
+    this.scheduleBroadcast();
+  }
+
+  private async countdownFired() {
+    this.countdownTimer = null;
+    if (this.status !== 'lobby' || this.countdownEndsAt == null) return;
+    if (this.startReasons().length) return this.cancelCountdown('Se cancela la cuenta atrás.');
+    this.countdownEndsAt = null;
+    await this.createMatch();
+  }
+
+  /** El anfitrión empieza sin esperar a que todos se preparen (GDD §15). */
+  forceStart(user: SessionUser): Promise<void> {
+    return this.queue.run(async () => {
+      this.assertLobby();
+      this.assertHost(user.id);
+      const reasons = this.forceReasons();
+      if (reasons.length) throw invalidState(reasons.join(' '));
+      if (this.countdownTimer) clearTimeout(this.countdownTimer);
+      this.countdownTimer = null;
+      this.countdownEndsAt = null;
+      await this.createMatch();
+    });
+  }
+
+  private matchHost(): MatchHost {
+    return {
+      sockets: () => this.socketUsers.entries(),
+      isOnline: (userId) => this.isOnline(userId),
+      onFinished: async (winnerId) => {
+        this.status = 'finished';
+        await this.deps.repo.updateRoom(this.id, { status: 'finished', finishedAt: new Date() });
+        const w = winnerId ? this.participants.get(winnerId) : undefined;
+        void this.system(w?.character ? `${w.character.name} gana la partida.` : 'La partida ha terminado.');
+        this.scheduleBroadcast();
+      },
+    };
+  }
+
+  private matchDeps(): MatchDeps {
+    return { repo: this.deps.matches, io: this.deps.io, log: this.deps.log, timings: this.deps.timings };
+  }
+
+  /** Crea el mundo: plazas libres asignadas, anillo de salida y presentación. */
+  private async createMatch(): Promise<void> {
+    const rng = new Rng(randomSeed());
+    const list = [...this.participants.values()].sort((a, b) => a.joinedAt - b.joinedAt);
+    for (const p of list) {
+      if (!p.character || !p.slotGender || p.slotDistrict != null) continue;
+      const d = this.randomFreeDistrict(p.slotGender, p.id, rng);
+      if (d == null) throw conflict('No quedan plazas libres en los distritos');
+      p.slotDistrict = d;
+      p.character = { ...p.character, district: d };
+      await this.deps.repo.updateParticipant(p.id, { slotDistrict: d, character: p.character });
+    }
+    const players = list.filter((p) => p.character && p.slotGender && p.slotDistrict != null);
+    const seed = this.config.seed || randomSeed();
+    const t = this.deps.timings;
+    const world = createWorld({
+      seed,
+      mapSize: MAP_SIZES[this.config.mapSize],
+      actors: players.map((p) => ({ id: p.id, kind: p.kind, userId: p.userId, character: p.character!, district: p.slotDistrict!, gender: p.slotGender! })),
+      rules: {
+        visibility: this.config.visibility,
+        pauseVote: this.config.pauseVote,
+        disconnectPolicy: this.config.disconnectPolicy,
+        disconnectGraceMs: this.config.disconnectGraceMin * 60_000,
+        presentationMs: t.presentationMs,
+        countdownMs: t.countdownMs,
+      },
+    });
+    for (const a of world.actors) if (a.kind === 'human' && a.userId && !this.isOnline(a.userId)) setConnected(world, a.id, false);
+    const row = await this.deps.matches.create(
+      { roomId: this.id, seed, config: this.config, snapshot: serializeWorld(world), status: world.phase },
+      players.map((p) => ({ participantId: p.id, kind: p.kind, userId: p.userId, character: p.character!, district: p.slotDistrict!, gender: p.slotGender! })),
+    );
+    this.status = 'in_game';
+    await this.deps.repo.updateRoom(this.id, { status: 'in_game', startedAt: new Date() });
+    this.match = new MatchRuntime(row.id, world, this.matchHost(), this.matchDeps());
+    this.match.start();
+    for (const [socketId, userId] of this.socketUsers) this.match.attach(socketId, userId);
+    void this.system('¡Empieza la partida! Presentación de los participantes.');
+    this.scheduleBroadcast();
+  }
+
+  // ------------------------------------------------------------------ intenciones de partida
+  requireMatch(): MatchRuntime {
+    if (!this.match) throw invalidState('Esta sala no tiene ninguna partida en marcha');
+    this.lastActivity = Date.now();
+    return this.match;
+  }
+
+  /** Para el bucle de la partida guardando su instantánea (cierre o descarga de memoria). */
+  async dispose(): Promise<void> {
+    if (this.countdownTimer) clearTimeout(this.countdownTimer);
+    this.countdownTimer = null;
+    await this.match?.dispose();
   }
 }

@@ -30,7 +30,7 @@ export async function startServer(overrides: Partial<typeof config> = {}): Promi
     ...built,
     url: `http://127.0.0.1:${port}`,
     async close() {
-      built.ctx.roomManager.stop();
+      await built.ctx.roomManager.shutdown();
       built.ctx.io?.close();
       await built.app.close();
       await built.ctx.pool.end();

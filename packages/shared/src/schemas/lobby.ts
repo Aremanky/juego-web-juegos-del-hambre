@@ -5,6 +5,7 @@ import { DIFFICULTY_KEYS, PERSONALITY_KEYS, PLAYSTYLE_KEYS } from '../game/bots.
 import { DISTRICT_COUNT } from '../game/districts.js';
 import type { Ack, ChatMessageDTO } from './api.js';
 import type { Gender } from '../game/districts.js';
+import type { MatchEventDTO, MatchFrame, MatchSnapshot, MovePayload, ResumePayload, VotePayload } from './match.js';
 
 export const BotSettingsSchema = z.object({
   difficulty: z.enum(DIFFICULTY_KEYS),
@@ -71,7 +72,14 @@ export interface LobbyState {
   };
   participants: LobbyParticipant[];
   me: { userId: string; participantId: string | null; isHost: boolean };
-  start: { canStart: boolean; reasons: string[]; countdownEndsAt: number | null };
+  start: {
+    canStart: boolean;
+    reasons: string[];
+    countdownEndsAt: number | null;
+    /** El anfitrión puede empezar sin esperar a que todos se preparen. */
+    canForce: boolean;
+    forceReasons: string[];
+  };
   bots: { total: number; mine: number; canAdd: boolean; reason: string | null };
 }
 
@@ -94,6 +102,14 @@ export interface ClientToServerEvents {
   'lobby:transferHost': (p: z.input<typeof TransferHostPayload>, cb: Cb) => void;
   'chat:send': (p: { channel: 'global' | 'room'; body: string }, cb: Cb) => void;
   'chat:history': (p: { channel: 'global' | 'room' }, cb: Cb<ChatMessageDTO[]>) => void;
+  'lobby:forceStart': (p: Record<string, never>, cb: Cb) => void;
+  'match:move': (p: z.input<typeof MovePayload>, cb: Cb) => void;
+  'match:stop': (p: Record<string, never>, cb: Cb) => void;
+  'match:pause': (p: Record<string, never>, cb: Cb) => void;
+  'match:vote': (p: z.input<typeof VotePayload>, cb: Cb) => void;
+  'match:resume': (p: z.input<typeof ResumePayload>, cb: Cb) => void;
+  'match:forfeit': (p: Record<string, never>, cb: Cb) => void;
+  'match:sync': (p: Record<string, never>, cb: Cb<MatchSnapshot>) => void;
 }
 
 export interface ServerToClientEvents {
@@ -102,4 +118,7 @@ export interface ServerToClientEvents {
   'room:closed': (p: { roomId: string }) => void;
   'chat:message': (m: ChatMessageDTO) => void;
   notify: (p: { kind: 'info' | 'success' | 'warning' | 'error'; text: string }) => void;
+  'match:snapshot': (s: MatchSnapshot) => void;
+  'match:frame': (f: MatchFrame) => void;
+  'match:event': (e: MatchEventDTO) => void;
 }

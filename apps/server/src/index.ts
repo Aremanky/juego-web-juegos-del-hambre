@@ -23,7 +23,7 @@ async function main() {
     const force = setTimeout(() => process.exit(1), 10_000);
     force.unref();
     try {
-      ctx.roomManager.stop();
+      await ctx.roomManager.shutdown();
       ctx.io?.close();
       await app.close();
       await ctx.pool.end();

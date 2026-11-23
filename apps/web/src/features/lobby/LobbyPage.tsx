@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Plus } from 'lucide-react';
-import { PACE_LABEL, ZONE_LABEL, defaultCharacter, districtById, mergeRoomConfig, summarizeBuild, type Character, type LobbyParticipant, type RoomConfigPatch } from '@ceniza/shared';
+import { PACE_LABEL, ZONE_LABEL, defaultCharacter, districtById, mergeRoomConfig, summarizeBuild, type Character, type LobbyParticipant, type LobbyState, type RoomConfigPatch } from '@ceniza/shared';
 import { ConfirmButton, Empty, Modal, Portrait, Spinner } from '../../components/ui';
 import { ChatPanel } from '../../components/ChatPanel';
 import { useLobby } from '../../stores/lobby';
@@ -13,6 +13,7 @@ import { toast } from '../../stores/toast';
 import { CharacterEditor } from '../characters/CharacterEditor';
 import { RoomConfigForm } from '../rooms/RoomConfigForm';
 import { act, BotEditor, DistrictBoard, HumanCard, ParticipantList } from './LobbyParts';
+import { MatchPage } from '../match/MatchPage';
 
 type MobileTab = 'sala' | 'personaje' | 'chat';
 
@@ -53,6 +54,8 @@ export function LobbyPage() {
       </div>
     );
   }
+
+  if (state.room.status === 'in_game' || state.room.status === 'finished') return <MatchPage lobby={state} />;
 
   const me = state.participants.find((p) => p.id === state.me.participantId) ?? null;
   const openParticipant = (p: LobbyParticipant) => (p.id === me?.id ? setEditing(true) : setOpen(p));
@@ -158,7 +161,13 @@ export function LobbyPage() {
             <MyCharacter me={me} budget={state.room.config.attributePoints} onEdit={() => setEditing(true)} />
           </section>
           <section className="panel ready-panel" data-section="personaje">
-            <ReadyBox me={me} canStart={state.start.canStart} reasons={state.start.reasons} humans={humans.length} readyCount={humans.filter((h) => h.ready).length} />
+            <ReadyBox
+              me={me}
+              start={state.start}
+              autoStart={state.room.config.autoStart}
+              humans={humans.length}
+              readyCount={humans.filter((h) => h.ready).length}
+            />
           </section>
           <section className="panel lobby-chat" data-section="chat">
             <h3>Chat de la sala</h3>
@@ -256,8 +265,18 @@ function MyCharacter({ me, budget, onEdit }: { me: LobbyParticipant | null; budg
   );
 }
 
-function ReadyBox({ me, canStart, reasons, humans, readyCount }: { me: LobbyParticipant | null; canStart: boolean; reasons: string[]; humans: number; readyCount: number }) {
+function SecondsLeft({ to }: { to: number }) {
+  const [, setN] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setN((n) => n + 1), 250);
+    return () => clearInterval(id);
+  }, []);
+  return <span className="start-count num">{Math.max(0, Math.ceil((to - Date.now()) / 1000))}</span>;
+}
+
+function ReadyBox({ me, start, autoStart, humans, readyCount }: { me: LobbyParticipant | null; start: LobbyState['start']; autoStart: boolean; humans: number; readyCount: number }) {
   const ready = !!me?.ready;
+  const { canStart, reasons } = start;
   return (
     <div className="stack">
       <button className={`btn btn-lg ready-btn${ready ? ' is-ready' : ' btn-primary'}`} onClick={() => void act('lobby:setReady', { ready: !ready })} disabled={!me}>
@@ -277,14 +296,26 @@ function ReadyBox({ me, canStart, reasons, humans, readyCount }: { me: LobbyPart
         </span>{' '}
         <span className="muted small">humanos preparados</span>
       </div>
-      {canStart ? (
-        <p className="start-ok">Todos preparados. Esta versión todavía no permite iniciar la partida.</p>
+      {start.countdownEndsAt ? (
+        <p className="start-ok">
+          Todos preparados. La partida empieza en <SecondsLeft to={start.countdownEndsAt} /> s.
+        </p>
+      ) : canStart ? (
+        <p className="start-ok">{autoStart ? 'Todos preparados.' : 'Todos preparados. El anfitrión decide cuándo empezar.'}</p>
       ) : (
         <ul className="reasons">
           {reasons.map((r) => (
             <li key={r}>{r}</li>
           ))}
         </ul>
+      )}
+      {start.canForce && !start.countdownEndsAt && (
+        <div className="force-box">
+          <button className="btn btn-gold" onClick={() => void act('lobby:forceStart', {})}>
+            Empezar ya
+          </button>
+          <span className="hint">{canStart ? 'Empieza sin esperar.' : 'Empieza aunque falte gente por prepararse o esté desconectada: se aplica la regla de desconexión de la sala.'}</span>
+        </div>
       )}
     </div>
   );

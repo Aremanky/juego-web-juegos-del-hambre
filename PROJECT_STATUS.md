@@ -1,10 +1,14 @@
 # PROJECT_STATUS — Los Juegos de la Ceniza
 
-**Versión:** 0.3.2 · **Última actualización:** 23/11/2026 (sesión 1, con dos revisiones de diseño anti-IA) · **Avance global: ~39 %**
+**Versión:** 0.4.0 · **Última actualización:** 23/11/2026 (sesión 2, fase 4) · **Avance global: ~52 %**
 
 El proyecto es ejecutable: se puede registrar, guardar fotos y personajes, crear salas, invitar por código o
-enlace y preparar la partida en tiempo real con amigos y bots. **Aún no se puede jugar la partida**: el
-motor de la arena es la fase 4.
+enlace, preparar la partida con amigos y bots y **jugarla en tiempo real**: presentación de los participantes,
+cuenta atrás en el anillo del Obelisco, mapa por semilla, movimiento con un toque, pausa por votación,
+desconexiones con piloto automático y recuperación tras reiniciar el servidor. Todavía no hay combate,
+recursos ni eventos (fases 7–9): una partida termina cuando los demás abandonan o quedan fuera por desconexión.
+
+Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Aremanky/juego-web-juegos-del-hambre).
 
 ## Avance por fase
 
@@ -13,27 +17,28 @@ motor de la arena es la fase 4.
 | 1 | Entorno, experiencia y mecánicas (GDD) | **100 %** | ██████████ |
 | 2 | Arquitectura, estructura e infraestructura | **90 %** | █████████░ |
 | 3 | Usuarios, salas, lobby, personajes, fotos persistentes | **100 %** | ██████████ |
-| 4 | Motor multijugador y sincronización de partida | 15 % | █▌░░░░░░░░ |
+| 4 | Motor multijugador y sincronización de partida | **90 %** | █████████░ |
 | 5 | Estadísticas, habilidades y reparto de puntos | 60 % | ██████░░░░ |
-| 6 | Bots autónomos e incorporación desde el lobby | 25 % | ██▌░░░░░░░ |
-| 7 | Mapa, movimiento y exploración | 5 % | ▌░░░░░░░░░ |
+| 6 | Bots autónomos e incorporación desde el lobby | 30 % | ███░░░░░░░ |
+| 7 | Mapa, movimiento y exploración | 25 % | ██▌░░░░░░░ |
 | 8 | Recursos, combates, alianzas y traiciones | 5 % | ▌░░░░░░░░░ |
 | 9 | Eventos dinámicos y progresión | 5 % | ▌░░░░░░░░░ |
-| 10 | Interfaz completa (26 pantallas) | 35 % | ███▌░░░░░░ |
-| 11 | Pruebas completas, optimización y errores | 25 % | ██▌░░░░░░░ |
+| 10 | Interfaz completa (26 pantallas) | 45 % | ████▌░░░░░ |
+| 11 | Pruebas completas, optimización y errores | 35 % | ███▌░░░░░░ |
 | 12 | Despliegue definitivo en Proxmox | 60 % | ██████░░░░ |
 
 El avance global pondera cada fase por su esfuerzo estimado (F1 5 %, F2 7 %, F3 12 %, F4 12 %, F5 6 %, F6 12 %,
-F7 12 %, F8 12 %, F9 7 %, F10 8 %, F11 4 %, F12 3 %). Las fases 4, 6, 7 y 8 son las más pesadas que quedan.
+F7 12 %, F8 12 %, F9 7 %, F10 8 %, F11 4 %, F12 3 %). Las fases 6, 7 y 8 son las más pesadas que quedan.
 
 Notas de reparto:
-- **F4 (15 %)**: ya está la base reutilizable (Socket.IO autenticado, confirmaciones, límites, estado filtrado
-  por jugador, reconexión, multidispositivo, persistencia y recuperación tras reinicio). Falta el bucle de partida.
-- **F5 (60 %)**: sistema completo de atributos, coste creciente, fórmulas derivadas, habilidades, rasgos,
-  defectos, distritos, validación en servidor y editor visual con comparación. Falta aplicarlo a las mecánicas
-  de partida (fases 7–8) y las simulaciones de equilibrio.
-- **F6 (25 %)**: incorporación desde el lobby completa (cualquiera añade, límites, idempotencia, edición por
-  todos, generación equilibrada por personalidad). Falta la IA de decisión (Utility AI, memoria, percepción).
+- **F4 (90 %)**: hecho el motor, el inicio, la sincronización, la pausa, las desconexiones, la persistencia y la
+  recuperación. Falta una prueba de carga con 24 participantes y el sobrevuelo de la arena en la presentación.
+- **F5 (60 %)**: la velocidad y la visión de la partida ya salen de los atributos. Falta aplicar el resto a las
+  mecánicas de las fases 7–8 y las simulaciones de equilibrio.
+- **F6 (30 %)**: incorporación desde el lobby completa y un piloto provisional que camina por la arena con la misma
+  API que un humano. Falta la IA de decisión (Utility AI, memoria, percepción con `computeView`).
+- **F7 (25 %)**: mapa por semilla con biomas y explanada central, A* con coste de terreno, movimiento interpolado y
+  niebla de guerra. Falta el mapa ilustrado con PixiJS, ríos, caminos, puntos de interés y exploración.
 
 ## Funcionalidades completadas (probadas)
 
@@ -56,42 +61,39 @@ Notas de reparto:
 - 8 arquetipos rápidos; comparación con arquetipos o personajes guardados (radar y estadísticas derivadas).
 - Identidad: nombre, epíteto, género, distrito preferido, color, 6 marcos de marcador, retrato, foto de victoria y presentación.
 - Estrategia de piloto automático (combate, umbral de huida, alianzas).
-- Vista previa en ficha, en el mapa y en la clasificación.
 - Plantillas guardadas en el servidor, reutilizables entre sesiones y dispositivos (crear, editar, duplicar, borrar).
 
 **Salas y lobby en tiempo real**
 - Crear sala con configuración completa (incluida duración ilimitada); unirse por código o por enlace `/r/CÓDIGO`.
 - Tablero de distritos (12 × 2 plazas) con unicidad garantizada en memoria y en BD, también ante peticiones simultáneas.
-- Al entrar se carga solo tu último personaje (o el que tenías en esa sala).
-- Lista de participantes con presencia, indicador de preparados, humano/bot y quién añadió cada bot.
-- «+ AÑADIR BOT» para cualquier participante; límites total y por persona; sin duplicados por doble clic ni carreras.
-- Edición de bots por cualquiera (identidad, cara, dificultad, personalidad, estilo, atributos, habilidades), regenerar
-  y retirar (quien lo añadió o el anfitrión).
-- Prioridad humana: si la sala está llena, el humano que entra sustituye al último bot.
-- Anfitrión: configurar, expulsar (sin posibilidad de volver), ceder el puesto; traspaso automático si se desconecta.
-- Salida voluntaria; la sala se cierra al quedar sin humanos.
+- «+ AÑADIR BOT» para cualquier participante; límites total y por persona; edición por cualquiera; prioridad humana.
+- Anfitrión: configurar, expulsar, ceder el puesto; traspaso automático si se desconecta.
 - Reconexión automática, varios dispositivos por usuario, persistencia y recuperación tras reiniciar el servidor.
-- Chat global y de sala, con historial.
-- La build de cada humano es secreta para los demás.
+- Chat global y de sala, con historial. La build de cada humano es secreta para los demás.
+
+**Partida en tiempo real (fase 4)**
+- Inicio automático cuando todos están preparados y conectados (cuenta atrás de 5 s que se cancela si alguien se
+  desprepara) o **inicio forzado** por el anfitrión. A quien no eligió plaza se le asigna una libre de su género.
+- Presentación de los participantes con sus camafeos o fotos y cuenta atrás de 15 s en el anillo del Obelisco.
+- Mapa por semilla (64², 96² o 128²): lagos, orillas, praderas, bosque, bosque denso, roca, montaña y cumbres,
+  con la explanada del Obelisco en el centro.
+- Mover con un toque: el servidor calcula la ruta con coste de terreno y la velocidad del personaje; el cliente la
+  interpola sin saltos. Parar, arrastrar el mapa, zoom con rueda, pellizco o botones y «Centrar».
+- Niebla de guerra opcional: solo ves a quien entra en tu radio de visión; de los demás nunca se ve su destino.
+- Pausa por votación (mayoría o unanimidad, caduca a los 30 s) y reanudación cuando todos pulsan «Listo».
+- Desconexión según la sala: piloto automático, a cubierto o eliminación tras los minutos de gracia.
+- Abandonar la partida, clasificación por orden de caída, ganador y pantalla de resultados.
+- Instantáneas cada 10 s y al apagar: tras un reinicio la partida vuelve en pausa con el mismo mundo.
+- Registro de eventos de cada partida en la BD (base del historial y la cronología de la fase 10).
 
 **Interfaz**
-- Identidad visual propia («Ceniza y cristal»): inicio, acceso, menú, perfil, fotos, personajes, editor,
-  crear y unirse a sala, lobby y editor de bots. Adaptada a móvil (pestañas en el lobby) y a escritorio.
-- Revisión anti-IA con las skills **unslop-ui**, **Impeccable** y **Taste Skill**: sin degradados en el texto, sin
-  resplandores de neón, sin barras de color en un solo lado de las cajas, botón principal sólido, etiquetas sin
-  forma de píldora, portada en dos columnas con el producto real (el tablero) en lugar del héroe centrado,
-  contraste del texto tenue ≥4,5:1, barras de desplazamiento y cursor tematizados, y textos sin fórmulas genéricas.
-- Segunda revisión (con **create-game-assets** y la crítica de **Impeccable**):
-  - Retratos generados rehechos como **camafeos de perfil** (relieve en hueso sobre el color del jugador, nueve
-    peinados), legibles a 30 px y distintos de las fotos de los amigos.
-  - Fuera los iconos de serie de los botones con texto y de atributos, habilidades y rasgos; glifos propios en la
-    navegación del móvil y un punto de conexión en lugar del icono de wifi.
-  - Colores de distrito y de jugador pasados a pigmentos apagados; atributos en oro con color por tramo de coste.
-  - Encabezados de sección en Archivo (Cinzel solo para títulos, nombres y numerales), esquinas de visor solo en el
-    tablero, fondo de hollín sin degradados y curvas de nivel turquesas en la vista previa del mapa.
+- Identidad visual propia («Ceniza y cristal») en inicio, acceso, menú, perfil, fotos, personajes, editor, salas,
+  lobby, editor de bots y ahora la partida (mapa, presentación, cuenta atrás, pausa, votación y resultados).
+- Dos revisiones anti-IA con **unslop-ui**, **Impeccable**, **Taste Skill** y **create-game-assets**: camafeos
+  de perfil para los retratos generados, glifos propios, pigmentos apagados, sin degradados ni resplandores.
 
 **Infraestructura**
-- Monorepo (shared, server, web), migraciones automáticas, modo producción con el frontend servido por Node.
+- Monorepo (shared, engine, server, web), migraciones automáticas, modo producción con el frontend servido por Node.
 - systemd con endurecimiento, health check con reinicio, copias diarias con rotación, restauración,
   actualizaciones con vuelta atrás automática, Caddy, Nginx y cloudflared.
 
@@ -99,14 +101,14 @@ Notas de reparto:
 
 | Suite | Resultado | Cubre |
 |---|---|---|
-| Unitarias (`packages/shared`) | **16/16 ✔** | Costes, arquetipos, que ningún atributo sea decorativo (cada uno cambia ≥3 derivadas), defectos y rasgos, validación, fábrica de bots en las 180 combinaciones, RNG reanudable, configuración, códigos |
-| Integración (`apps/server`, PostgreSQL real) | **33/33 ✔** | Registro, duplicados, login, logout, cambio de contraseña, CSRF, código de registro; fotos (subida, límite de 2048 px, recorte con versión nueva, 304, 415, 413, permisos, predeterminada, borrado); plantillas (CRUD, versión de foto, persistencia entre sesiones, build inválida, foto ajena) |
-| Multicliente (sockets reales) | incluido arriba | Unión de 2+ clientes, plantilla automática, build privada, carrera por la misma plaza, nombres únicos, doble clic, oleadas simultáneas de 2 usuarios contra los límites, idempotencia, edición y retirada de bots con permisos, preparados, reequilibrado al cambiar puntos, multidispositivo, desconexión y reconexión, chat, expulsión sin retorno, traspaso de anfitrión, **reinicio del servidor con la sala intacta**, salida y cierre, prioridad humana |
-| Extremo a extremo (Chrome real) | **1/1 ✔** | Dos usuarios a la vez (escritorio + móvil): registro, subir y recortar foto, crear plantilla, crear sala, invitación por enlace, bots añadidos por la invitada y editados por el anfitrión (visible al instante), personaje en sala, plaza, preparados, chat, recarga con reconexión, sesión recordada |
-| Compilación y tipos | ✔ | `tsc` en los 3 paquetes, build de servidor y web |
-| Diseño (escáner de unslop-ui y detector de Impeccable) | **0 señales** (antes 12 y 2) | Degradados, resplandores, píldoras, rebotes, rejillas decorativas; más revisión visual de las 12 capturas y QA de los camafeos con `asset_report.py` |
+| Unitarias (`packages/shared`) | **16/16 ✔** | Costes, arquetipos, atributos con efecto real, defectos y rasgos, validación, fábrica de bots, RNG reanudable, configuración, códigos |
+| Motor (`packages/engine`) | **18/18 ✔** | Mapa determinista, codificación, A* contiguo y óptimo, tiempos por terreno, sin teletransportes, determinismo con intenciones, instantánea restaurada idéntica, piloto, pausa que congela el reloj, abandono y ganador, políticas de desconexión, votaciones, reinicio en pausa, niebla de guerra, rutas ajenas recortadas |
+| Integración (`apps/server`, PostgreSQL real) | **42/42 ✔** | Las 33 de cuentas, fotos, plantillas y lobby, más 9 de partida: inicio automático, inicio forzado, sin entradas tardías, movimiento validado, chat según la sala, pausa y reanudación, reconexión con piloto, **reinicio del servidor a mitad de partida**, abandono con ganador y registro en BD |
+| Extremo a extremo (Chrome real) | **1/1 ✔** | Dos usuarios (escritorio + móvil) del registro a la partida: lobby, bots, plazas, chat, recarga, inicio automático, presentación, cuenta atrás, mover con un toque, pausa por votación, recarga en plena partida y abandono |
+| Compilación y tipos | ✔ | `tsc` en los 4 paquetes, build de servidor y web |
+| Diseño (unslop-ui y detector de Impeccable) | **0 señales** | Sobre todas las pantallas, incluida la partida |
 | Producción | ✔ | Health, SPA y rutas internas, CSP, caché inmutable en los archivos con hash |
-| Despliegue (simulado sin systemd) | ✔ | Usuario de servicio, `.env` con clave aleatoria, `npm ci` y compilación, migraciones, arranque como `ceniza`, health check, copia de seguridad y restauración verificada |
+| Despliegue (simulado sin systemd) | ✔ | Usuario de servicio, `.env` con clave aleatoria, compilación, migraciones, health check, copia y restauración |
 
 ## Skills instaladas para el desarrollo
 
@@ -114,49 +116,43 @@ Notas de reparto:
 |---|---|
 | Impeccable, unslop-ui, Taste Skill | Diseño de la interfaz y detección de señales de IA |
 | pixijs-skills (oficial de PixiJS) | Mapa ilustrado de la arena con PixiJS v8 (fase 7) |
-| gamedev-agent-skills (8 skills) | IA de bots con utility AI, percepción y rutas (fase 6); generación procedural y botín (fases 7–8); supervivencia y fabricación (fase 8); HUD, sensación de juego y cámara (fase 10); arte y personajes coherentes |
+| gamedev-agent-skills (8 skills) | IA de bots (fase 6), generación procedural y botín (fases 7–8), supervivencia y fabricación (fase 8), HUD, sensación de juego y cámara (fase 10), arte coherente |
 | transformers-js (oficial de Hugging Face) | Retrato con IA en la GPU del navegador (fase 10) |
 | anthropic-art-skills | Arte generativo con código (texturas, carteles, imagen para compartir salas) |
-| openai-develop-web-game | Ciclo de pruebas con Playwright para el bucle de partida (fases 4 y 7) |
-
-No se han instalado generadores de imágenes por IA externos: son de pago, rompen la regla de no depender de
-servicios externos y su resultado se reconoce como IA.
+| openai-develop-web-game | Ciclo de pruebas con Playwright para el bucle de partida |
 
 ## Funcionalidades pendientes
 
-- **Fase 4:** inicio de partida, bucle autoritativo, sincronización de partida, pausa por votación y
-  políticas de desconexión en partida, persistencia de partidas.
-- **Fase 5:** aplicar estadísticas en mecánicas y simulaciones de equilibrio.
+- **Fase 4:** prueba de carga con 24 participantes y sobrevuelo de la arena en la presentación.
+- **Fase 5:** aplicar estadísticas al resto de mecánicas y simulaciones de equilibrio.
 - **Fase 6:** IA de bots (Utility AI, memoria, percepción idéntica a la de un humano, diálogo).
-- **Fases 7–9:** mapa procedural ilustrado (PixiJS), movimiento, exploración, inventario, fabricación, combate,
-  alianzas, traiciones, eventos y Director, zona segura.
-- **Fase 10:** pantallas de partida (mapa, inventario, combate, alianzas, eventos, clasificación, eliminación,
-  victoria), historial, logros, administración y **retrato con IA en la GPU del navegador**.
+- **Fases 7–9:** mapa ilustrado con PixiJS (relieve, ríos, caminos, rótulos, modo holograma), día y noche,
+  exploración, inventario, fabricación, combate, alianzas, traiciones, eventos y Director, zona segura.
+- **Fase 10:** inventario, combate, alianzas, eventos, historial, logros, administración y **retrato con IA en la
+  GPU del navegador**.
 - **Fase 12:** validar en tu VM real (systemd, ufw, túnel de Cloudflare con tu dominio).
 
 ## Errores y limitaciones conocidas
 
-- Con todos preparados, el lobby muestra «Todos preparados», pero no hay botón de inicio hasta la fase 4. Es
-  intencionado: no se dejan botones sin funcionalidad.
-- Las fotos HEIC dependen de que el navegador las abra (Safari sí; Chrome en Windows no, y muestra un aviso claro).
-  Desde el iPhone se convierten solas a JPG al subirlas.
-- El paquete JavaScript ocupa 648 KB (199 KB comprimido). Se dividirá en trozos cuando llegue el mapa.
+- El mapa de la partida es básico (canvas 2D con biomas y árboles simples); el ilustrado llega en la fase 7.
+- Los bots y los desconectados en piloto solo deambulan; la IA de verdad es la fase 6.
+- Sin combate todavía: una partida solo termina por abandonos o desconexiones con la regla «eliminar».
+- El chat de sala durante la partida solo funciona con «Chat durante la partida: Todos» (las alianzas son fase 8).
+- Las fotos HEIC dependen de que el navegador las abra (Safari sí; Chrome en Windows no, y avisa).
+- El paquete JavaScript ocupa 655 KB (202 KB comprimido). Se dividirá en trozos cuando llegue PixiJS.
 - No hay panel de administración web todavía; existe `npm run admin:promote`.
 - Las unidades systemd, ufw y Caddy no se han podido ejecutar aquí (el entorno no tiene systemd). Ver `docs/DEPLOYMENT.md` §9.
 
-## Próximos pasos (sesión 2: fase 4)
+## Próximos pasos (sesión 3)
 
-1. `packages/engine`: estado del mundo serializable, tick a 10 Hz, cola de intenciones, PRNG con estado.
-2. Inicio de partida desde el lobby (automático o forzado), asignación de plazas libres, cuenta atrás y presentación.
-3. Protocolo de partida: instantánea al entrar, deltas a 5 Hz, segmentos de movimiento, vista por jugador (`computeView`).
-4. Tablas `matches`, `match_participants`, `match_events`; instantáneas periódicas y recuperación tras reinicio (en pausa).
-5. Pausa por votación y reanudación cuando todos estén listos; políticas de desconexión.
-6. Generador de mapa básico para validar el movimiento sincronizado (el ilustrado completo llega en la fase 7).
-7. Pruebas: sincronización con varios clientes, reconexión a mitad de partida, reinicio del servidor durante una partida.
+1. Fase 7: mapa ilustrado con PixiJS v8 sobre el mismo mundo (relieve sombreado, ríos y caminos en el generador,
+   puntos de interés con nombre, rótulos, modo cartográfico y holograma), día y noche, exploración y regiones.
+2. Fase 6: IA de bots con utility AI sobre `computeView` (misma percepción que un humano), memoria y dificultad
+   como calidad de decisión; sustituye al piloto provisional.
+3. Fase 8 (inicio): medidores de supervivencia, búsqueda de recursos e inventario.
+4. Prueba de carga de la fase 4 con 24 clientes simulados.
 
 ## Cómo continuar en la próxima sesión
 
-El código no se conserva entre sesiones de Claude por sí solo. Para seguir:
-- **Opción recomendada:** conecta GitHub en claude.ai (Ajustes → Conectores) y crea un repositorio privado (p. ej.
-  `juegos-ceniza`); así podré subir y retomar el código directamente.
-- **Alternativa:** adjunta al empezar el `.tar.gz` entregado al final de esta sesión.
+El código está en GitHub: `main` tiene la versión 0.3.2 y la fase 4 llega por la rama `fase-4-motor-de-partida`
+(pull request). Al empezar la próxima sesión basta con decir que siga desde el repositorio.

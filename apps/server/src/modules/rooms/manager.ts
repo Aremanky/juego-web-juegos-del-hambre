@@ -47,13 +47,26 @@ export class RoomManager {
   sweep(now = Date.now()): void {
     for (const [id, rt] of this.byId) {
       rt.tick(now);
-      if (rt.socketCount === 0 && (rt.status === 'closed' || now - rt.lastActivity > IDLE_UNLOAD_MS)) this.byId.delete(id);
+      const idle = Math.max(rt.lastActivity, rt.match?.lastActivity ?? 0);
+      if (rt.socketCount === 0 && (rt.status === 'closed' || now - idle > IDLE_UNLOAD_MS)) {
+        // Una partida sin nadie conectado se guarda y se descarga; vuelve en pausa al entrar alguien.
+        void rt.dispose().catch(() => undefined);
+        this.byId.delete(id);
+      }
     }
   }
 
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    for (const rt of this.byId.values()) rt.match?.stop();
+  }
+
+  /** Cierre ordenado: para los bucles de partida y espera a que se guarden sus instantáneas. */
+  async shutdown(): Promise<void> {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    await Promise.all([...this.byId.values()].map((rt) => rt.dispose().catch(() => undefined)));
   }
 
   get loadedCount(): number {
