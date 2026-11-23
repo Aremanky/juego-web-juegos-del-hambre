@@ -426,10 +426,10 @@ de momento no hace falta la GPU del anfitrión para el mapa.
 
 ### 7.2 Biomas
 
-Los biomas que ya existen en la partida (pradera, orilla, bosque, bosque denso, roca, montaña, cumbre, lago y la
-explanada del Obelisco) usan las cifras de `packages/shared/src/game/terrain.ts`. Las cifras de visión del
-código (bosque ×0,85 y ×0,7, altura ×1,15 y ×1,3) son más suaves que las del primer borrador de esta tabla; se
-revisarán en la fase 7, cuando el mapa tenga caminos, ríos y puntos de interés.
+Los biomas que existen en la partida (todos menos instalación y cueva/refugio, que llegarán con los puntos de
+interés de la fase 8) usan las cifras de `packages/shared/src/game/terrain.ts`. Las de visión (bosque ×0,85 y
+×0,7, altura ×1,15 y ×1,3) son más suaves que las del primer borrador de esta tabla y se mantienen con la arena
+completa de la 0.6.
 
 | Bioma | Coste mov. | Visión propia | Cobertura | Recursos | Peligros |
 |---|---|---|---|---|---|
