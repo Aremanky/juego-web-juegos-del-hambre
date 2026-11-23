@@ -34,14 +34,14 @@ Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Ar
 | 11 | Pruebas completas, optimización y errores | 4 % | 45 % | ████▌░░░░░ |
 | 12 | Despliegue definitivo en Proxmox | 3 % | 60 % | ██████░░░░ |
 
-**Por qué el avance global solo sube un punto.** En esta sesión se ha ampliado el alcance:
+**Por qué el avance global sube poco (del 52 % al 54 % en esta sesión).** Se ha ampliado el alcance:
 - Personajes animados en el mapa en lugar de la foto (fase 7).
 - Un sistema de personalización muy amplio y crear el personaje desde una foto, generando las piezas que
   falten (fase 10).
 - Usar la GPU del anfitrión de la sala para lo pesado (fases 6, 7 y 10).
 
-Los pesos se han recalculado con ese alcance (antes F7 12 % y F10 8 %; ahora 14 % y 13 %). La fase 5 completa
-compensa justo lo que crece el resto.
+Los pesos se han recalculado con ese alcance (antes F7 12 % y F10 8 %; ahora 14 % y 13 %). Completar la fase 5
+compensa casi todo lo que crecen las fases 7 y 10; el cierre de la fase 4 y la prueba de carga suman algo más de un punto.
 
 Notas de reparto:
 - **F4 (100 %)**: cerrada con el sobrevuelo de la arena en la presentación y la prueba de carga con 24 participantes
