@@ -137,7 +137,7 @@ Notas de reparto:
 | Carga (`npm run load`, 30 s) | **✔** | 24 humanos, mapa grande con niebla: tick p95 1,9 ms, respuesta p95 4 ms, 6,8 KB/s por jugador |
 | Extremo a extremo (Chrome real) | **1/1 ✔** | Del registro a la partida en escritorio y móvil, ahora con el mapa nuevo (también de cerca), la pestaña Apariencia, los personajes, el reloj de día, el holograma, la noche y una medida de 41 fps |
 | Compilación y tipos | ✔ | `tsc` en los 4 paquetes, build de servidor y web |
-| Diseño (unslop-ui y detector de Impeccable) | **0 señales** | Sobre todas las pantallas |
+| Diseño (unslop-ui y detector de Impeccable) | **0 señales** | Todas las pantallas en la 0.6.0; en la 0.6.1, el detector sobre la pestaña Apariencia |
 | Producción | ✔ | Health 0.6.1, SPA y rutas internas (build de servidor y web servido por Fastify) |
 
 ## Skills y plugins instalados para el desarrollo
@@ -194,5 +194,4 @@ Notas de reparto:
 
 El código está en GitHub. `main` tiene la fase 4. Las ramas van una encima de otra:
 `fase-5-estadisticas` (#2), `fase-4-cierre` (#3), `fase-6-y-7` (#4) y `pase-visual` (#5). Fusiónalas en
-ese orden. Al empezar la
-próxima sesión basta con decir que siga desde el repositorio.
+ese orden. Al empezar la próxima sesión basta con decir que siga desde el repositorio.
