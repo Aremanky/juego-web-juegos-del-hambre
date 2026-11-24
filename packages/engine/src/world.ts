@@ -1,9 +1,13 @@
 import {
   computeDerived,
+  dayPhase,
   hashString,
   Rng,
   terrainCosts,
   visionByTerrain,
+  type BotSettings,
+  type DayCycle,
+  type DerivedInput,
   type ActorControl,
   type ActorView,
   type Character,
@@ -16,7 +20,8 @@ import {
   type RngState,
   type VoteDTO,
 } from '@ceniza/shared';
-import { generateMap, inBounds, spawnRing, tileAt, type Cell, type GameMap } from './map.js';
+import { think, type BotMind } from './ai.js';
+import { generateMap, heightsFromTiles, inBounds, regionAt, spawnRing, tileAt, type Cell, type GameMap, type Poi } from './map.js';
 import { findPath } from './path.js';
 import { buildRoute, nextStop, routeEnd, routeEndTime, routeGlimpse, routePosition, truncateAfterCurrent, type Route } from './route.js';
 import { decodeTiles, encodeTiles, T, TERRAIN } from './terrain.js';
@@ -38,6 +43,8 @@ export interface ActorInit {
   character: Character;
   district: number;
   gender: Gender;
+  /** Personalidad, estilo y dificultad (solo bots). */
+  bot?: BotSettings | null;
 }
 
 export interface ActorState {
@@ -59,6 +66,18 @@ export interface ActorState {
   costs: number[];
   /** Radio de visión en cada terreno (bosque lo recorta, la altura lo amplía), por id de terreno. */
   visionBy: number[];
+  /** Lo mismo de noche (×0,6 y ventajas nocturnas). Falta en partidas de la 0.5. */
+  visionNight?: number[];
+  /** Build del personaje: la IA la usa para estimar combates. Falta en partidas de la 0.5. */
+  build?: DerivedInput;
+  /** Regiones descubiertas (bit i = región i). */
+  explored: number;
+  /** Personalidad y dificultad de un bot; null en humanos. */
+  bot?: BotSettings | null;
+  /** Estrategia del personaje: guía al piloto automático de un humano desconectado. */
+  strategy?: Character['strategy'];
+  /** Estado de la IA (bots y piloto automático). */
+  mind?: BotMind | null;
   /** Casilla donde empieza la ruta en curso, o donde está si no se mueve. */
   x: number;
   y: number;
@@ -82,6 +101,9 @@ export interface WorldRules {
   disconnectGraceMs: number;
   presentationMs: number;
   countdownMs: number;
+  /** Ciclo de día y noche (por ritmo de sala). Sin él: 8 + 4 min. */
+  dayMs?: number;
+  nightMs?: number;
 }
 
 export interface PauseState {
@@ -114,6 +136,8 @@ export interface World {
   rng: Rng;
   rules: WorldRules;
   winnerId: string | null;
+  /** Es de noche ahora mismo (para avisar al cambiar). */
+  night?: boolean;
 }
 
 export type WorldEvent =
@@ -123,7 +147,10 @@ export type WorldEvent =
   | { type: 'pausa'; reason: 'votacion' | 'reinicio' }
   | { type: 'reanudada' }
   | { type: 'votacion'; result: 'abierta' | 'aprobada' | 'rechazada' | 'caducada'; byName: string }
-  | { type: 'conexion'; actorId: string; connected: boolean };
+  | { type: 'conexion'; actorId: string; connected: boolean }
+  | { type: 'descubre'; actorId: string; region: number }
+  | { type: 'anochece' }
+  | { type: 'amanece' };
 
 export class IntentError extends Error {}
 
@@ -157,6 +184,12 @@ export function createWorld(opts: { seed: string; mapSize: number; actors: Actor
       vision: d.visionRadius,
       costs: terrainCosts(build),
       visionBy: visionByTerrain(build, d),
+      visionNight: visionByTerrain(build, d, true),
+      build,
+      explored: 1 << regionAt(map, spawns[i].x, spawns[i].y),
+      bot: a.kind === 'bot' ? (a.bot ?? null) : null,
+      strategy: c.strategy,
+      mind: null,
       x: spawns[i].x,
       y: spawns[i].y,
       route: null,
@@ -203,7 +236,9 @@ export function positionAt(a: ActorState, t: number): { x: number; y: number } {
 export function visionAt(w: World, a: ActorState, p: { x: number; y: number }): number {
   const x = Math.min(w.map.size - 1, Math.max(0, Math.round(p.x)));
   const y = Math.min(w.map.size - 1, Math.max(0, Math.round(p.y)));
-  return a.visionBy?.[tileAt(w.map, x, y)] ?? a.vision;
+  const tile = tileAt(w.map, x, y);
+  if (w.night && a.visionNight) return a.visionNight[tile] ?? a.vision * 0.6;
+  return (a.visionBy?.[tile] ?? a.vision) * (w.night ? 0.6 : 1);
 }
 
 export function aliveCount(w: World): number {
@@ -241,6 +276,11 @@ export function tick(w: World, now: number, eligible: string[]): WorldEvent[] {
     ev.push({ type: 'fase', phase: w.phase });
   }
   if (w.phase !== 'en_curso') return ev;
+  const night = dayPhase(w.t, dayCycle(w)).night;
+  if (night !== !!w.night) {
+    w.night = night;
+    ev.push({ type: night ? 'anochece' : 'amanece' });
+  }
   for (const a of w.actors) {
     if (!a.alive) continue;
     if (a.route && routeEndTime(a.route) <= w.t) {
@@ -249,37 +289,22 @@ export function tick(w: World, now: number, eligible: string[]): WorldEvent[] {
       a.y = end.y;
       a.route = null;
     }
+    if (w.map.pois.length) {
+      const p = positionAt(a, w.t);
+      const region = regionAt(w.map, p.x, p.y);
+      if (!(a.explored & (1 << region))) {
+        a.explored |= 1 << region;
+        ev.push({ type: 'descubre', actorId: a.id, region });
+      }
+    }
     if (a.kind === 'human' && !a.connected && w.rules.disconnectPolicy === 'eliminar' && a.offlineSince != null && w.t - a.offlineSince >= w.rules.disconnectGraceMs) {
       ev.push(...eliminate(w, a.id, 'desconexion'));
       if ((w.phase as MatchPhase) === 'terminada') break;
       continue;
     }
-    if (a.control === 'piloto' && !a.route && w.t >= a.nextThinkAt) wander(w, a);
+    if ((a.control === 'piloto' || a.control === 'protegido') && w.t >= a.nextThinkAt) think(w, a);
   }
   return ev;
-}
-
-/**
- * Piloto provisional: elige un destino cercano y camina hasta él. Usa la misma API que un humano.
- * La IA de verdad (utility AI, memoria, percepción) sustituye esto en la fase 6.
- */
-function wander(w: World, a: ActorState) {
-  const from = { x: a.x, y: a.y };
-  for (let tries = 0; tries < 8; tries++) {
-    const r = w.rng.int(5, 14);
-    const ang = w.rng.float(0, Math.PI * 2);
-    const x = Math.round(a.x + Math.cos(ang) * r);
-    const y = Math.round(a.y + Math.sin(ang) * r);
-    if (!inBounds(w.map, x, y)) continue;
-    const tt = tileAt(w.map, x, y);
-    if (tt === T.AGUA || tt === T.CUMBRE) continue;
-    const path = findPath(w.map, from, { x, y }, 5000, a.costs);
-    if (!path || path.length === 0) continue;
-    a.route = buildRoute(w.map, from, path, w.t, a.speed, a.costs);
-    a.nextThinkAt = routeEndTime(a.route) + w.rng.int(1500, 6000);
-    return;
-  }
-  a.nextThinkAt = w.t + 2000;
 }
 
 // ------------------------------------------------------------------ intenciones
@@ -483,6 +508,7 @@ function toView(w: World, a: ActorState, self: boolean, seen: boolean): ActorVie
     control: a.control,
     seen,
     vision: self ? visionAt(w, a, positionAt(a, w.t)) : null,
+    explored: self ? a.explored : null,
     x: seen ? a.x : -1,
     y: seen ? a.y : -1,
     route: seen && a.route ? (self ? a.route : routeGlimpse(a.route, w.t)) : null,
@@ -523,7 +549,7 @@ export function snapshotFor(w: World, matchId: string, viewerUserId: string | nu
   return {
     matchId,
     seed: w.seed,
-    map: { size: w.map.size, tiles: encodeTiles(w.map.tiles), center: w.map.center },
+    map: { size: w.map.size, tiles: encodeTiles(w.map.tiles), heights: encodeTiles(w.map.heights), center: w.map.center, pois: w.map.pois },
     phase: w.phase,
     phaseEndsAt: w.phaseEndsAt,
     clock: { t: w.t, now, running: !w.paused && w.phase !== 'terminada' },
@@ -533,27 +559,44 @@ export function snapshotFor(w: World, matchId: string, viewerUserId: string | nu
     me: view.me,
     winnerId: w.winnerId,
     visibility: w.rules.visibility,
+    day: dayCycle(w),
   };
+}
+
+/** Ciclo de día y noche de la partida: empieza de día al acabar la cuenta atrás. */
+export function dayCycle(w: World): DayCycle {
+  return { dayMs: w.rules.dayMs ?? 480_000, nightMs: w.rules.nightMs ?? 240_000, startAt: w.rules.presentationMs + w.rules.countdownMs };
 }
 
 // ------------------------------------------------------------------ instantáneas
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 export interface WorldJSON extends Omit<World, 'map' | 'rng'> {
-  map: { size: number; tiles: string; center: Cell };
+  map: { size: number; tiles: string; heights?: string; center: Cell; pois?: Poi[] };
   rng: RngState;
 }
 
 export function serializeWorld(w: World): WorldJSON {
-  return { ...clone({ ...w, map: undefined, rng: undefined }), map: { size: w.map.size, tiles: encodeTiles(w.map.tiles), center: { ...w.map.center } }, rng: w.rng.state() } as WorldJSON;
+  const map = { size: w.map.size, tiles: encodeTiles(w.map.tiles), heights: encodeTiles(w.map.heights), center: { ...w.map.center }, pois: clone(w.map.pois) };
+  return { ...clone({ ...w, map: undefined, rng: undefined }), map, rng: w.rng.state() } as WorldJSON;
 }
 
 export function restoreWorld(j: WorldJSON): World {
-  const w = { ...clone(j), map: { size: j.map.size, tiles: decodeTiles(j.map.tiles), center: { ...j.map.center } }, rng: new Rng(j.rng) } as World;
+  const tiles = decodeTiles(j.map.tiles);
+  const map: GameMap = {
+    size: j.map.size,
+    tiles,
+    // Partidas anteriores a la fase 7: relieve aproximado y sin puntos de interés.
+    heights: j.map.heights ? decodeTiles(j.map.heights) : heightsFromTiles(tiles),
+    center: { ...j.map.center },
+    pois: j.map.pois ? clone(j.map.pois) : [],
+  };
+  const w = { ...clone(j), map, rng: new Rng(j.rng) } as World;
   // Partidas guardadas por la 0.4: siguen con las reglas de entonces (sin ventajas de terreno).
   for (const a of w.actors) {
     a.costs ??= TERRAIN.map((t) => t.cost);
     a.visionBy ??= TERRAIN.map(() => a.vision);
+    a.explored ??= 1;
   }
   return w;
 }

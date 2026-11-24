@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { districtById, type ActorView, type LobbyState, type MatchSnapshot } from '@ceniza/shared';
+import { dayPhase, districtById, type ActorView, type LobbyState, type MatchSnapshot } from '@ceniza/shared';
 import { ConfirmButton, Portrait } from '../../components/ui';
 import { emitAck } from '../../lib/socket';
 import { gameNow, presentationProgress, serverNow, useMatch } from '../../stores/match';
@@ -30,6 +30,7 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
   const m = useMatch();
   const mapApi = useRef<MapApi | null>(null);
   const [showResults, setShowResults] = useState(true);
+  const [holo, setHolo] = useState(false);
   useTicker(250);
 
   // Si la instantánea llegó antes de montar la pantalla, se pide otra.
@@ -70,9 +71,12 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
         <MapCanvas onCell={goTo} apiRef={mapApi} />
         <div className="match-top">
           <h1 className="match-title">{lobby.room.name}</h1>
-          <span className="match-count num">
-            Quedan {alive.length} de {actors.length}
-          </span>
+          <div className="match-status">
+            {m.day && m.phase === 'en_curso' && <DayClock />}
+            <span className="match-count num">
+              Quedan {alive.length} de {actors.length}
+            </span>
+          </div>
         </div>
         <div className="map-tools" role="group" aria-label="Vista del mapa">
           <button className="btn btn-sm" onClick={() => mapApi.current?.zoom(1.25)} aria-label="Acercar">
@@ -83,6 +87,9 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
           </button>
           <button className="btn btn-sm" onClick={() => mapApi.current?.centerOnMe()}>
             Centrar
+          </button>
+          <button className="btn btn-sm" aria-pressed={holo} onClick={() => setHolo(mapApi.current?.toggleMode() === 'holograma')}>
+            {holo ? 'Mapa' : 'Holograma'}
           </button>
         </div>
         {canAct && <p className="map-hint">Toca una casilla para ir. Arrastra para mover la vista.</p>}
@@ -126,6 +133,7 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
                   </div>
                 </div>
               </div>
+              {m.pois.length > 1 && <Explored explored={me.explored ?? 0} />}
               {me.alive ? (
                 <div className="row-actions">
                   {me.route && canAct && (
@@ -225,6 +233,33 @@ function Presentation({ actors, mapSize }: { actors: ActorView[]; mapSize: numbe
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/** Reloj de día y noche de la arena. */
+function DayClock() {
+  const day = useMatch((s) => s.day)!;
+  const ph = dayPhase(gameNow(), day);
+  const left = Math.max(0, Math.ceil(ph.left / 1000));
+  const mmss = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  return (
+    <span className={`match-clock num${ph.night ? ' night' : ''}`}>
+      {ph.night ? `Noche ${ph.index}. Amanece en ${mmss}` : `Día ${ph.index}. Anochece en ${mmss}`}
+    </span>
+  );
+}
+
+/** Regiones descubiertas: el nombre de cada una aparece en el mapa al llegar. */
+function Explored({ explored }: { explored: number }) {
+  const pois = useMatch((s) => s.pois);
+  const found = pois.filter((p) => explored & (1 << p.id));
+  return (
+    <div className="explored">
+      <p className="small">
+        Has descubierto <strong>{found.length}</strong> de {pois.length} regiones.
+      </p>
+      <p className="small faint">{found.map((p) => p.name).join(', ')}</p>
     </div>
   );
 }

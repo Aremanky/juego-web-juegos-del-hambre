@@ -44,8 +44,10 @@ export interface ActorView {
   control: ActorControl;
   /** false con niebla de guerra si queda fuera de tu vista: entonces no hay posición. */
   seen: boolean;
-  /** Radio de visión en casillas: solo el del propio personaje. */
+  /** Radio de visión en casillas (con terreno y noche): solo el del propio personaje. */
   vision: number | null;
+  /** Regiones descubiertas (bit i = región i): solo el propio personaje. */
+  explored?: number | null;
   /** Casilla donde empieza su ruta, o donde está si no se mueve (−1 si no se ve). */
   x: number;
   y: number;
@@ -74,11 +76,30 @@ export interface VoteDTO {
   endsAt: number;
 }
 
+export interface PoiDTO {
+  id: number;
+  name: string;
+  kind: 'ruinas' | 'poblado' | 'cueva' | 'manantial' | 'obelisco';
+  x: number;
+  y: number;
+}
+
 export interface MatchMapDTO {
   size: number;
   /** Casillas en base64, una por byte (ids de terreno). */
   tiles: string;
+  /** Alturas 0–255 en base64, una por casilla (relieve del mapa ilustrado). Vacío en partidas de la 0.5. */
+  heights?: string;
   center: { x: number; y: number };
+  /** Puntos de interés; cada uno da nombre a su región (la casilla más cercana manda). El 0 es el Obelisco. */
+  pois?: PoiDTO[];
+}
+
+/** Ciclo de día y noche: empieza de día al acabar la cuenta atrás (ms de juego). */
+export interface DayCycleDTO {
+  dayMs: number;
+  nightMs: number;
+  startAt: number;
 }
 
 /** Reloj de partida: t (ms de juego) medido en el instante now (ms reales del servidor). */
@@ -103,6 +124,7 @@ export interface MatchSnapshot {
   me: string | null;
   winnerId: string | null;
   visibility: 'visible' | 'niebla';
+  day?: DayCycleDTO;
 }
 
 /** Fotograma incremental: solo los personajes que han cambiado para este destinatario. */
@@ -119,7 +141,7 @@ export interface MatchFrame {
 }
 
 export interface MatchEventDTO {
-  kind: 'fase' | 'eliminado' | 'pausa' | 'reanudada' | 'votacion' | 'fin' | 'conexion';
+  kind: 'fase' | 'eliminado' | 'pausa' | 'reanudada' | 'votacion' | 'fin' | 'conexion' | 'descubre' | 'anochece' | 'amanece';
   text: string;
   at: number;
 }

@@ -1,4 +1,5 @@
 import {
+  DAY_NIGHT_BY_PACE,
   CharacterSchema,
   DISTRICT_COUNT,
   GENDER_LABEL,
@@ -837,7 +838,7 @@ export class RoomRuntime {
     const world = createWorld({
       seed,
       mapSize: MAP_SIZES[this.config.mapSize],
-      actors: players.map((p) => ({ id: p.id, kind: p.kind, userId: p.userId, character: p.character!, district: p.slotDistrict!, gender: p.slotGender! })),
+      actors: players.map((p) => ({ id: p.id, kind: p.kind, userId: p.userId, character: p.character!, district: p.slotDistrict!, gender: p.slotGender!, bot: p.bot })),
       rules: {
         visibility: this.config.visibility,
         pauseVote: this.config.pauseVote,
@@ -845,6 +846,8 @@ export class RoomRuntime {
         disconnectGraceMs: this.config.disconnectGraceMin * 60_000,
         presentationMs: t.presentationMs,
         countdownMs: t.countdownMs,
+        dayMs: t.dayMs ?? DAY_NIGHT_BY_PACE[this.config.pace].dayMs,
+        nightMs: t.nightMs ?? DAY_NIGHT_BY_PACE[this.config.pace].nightMs,
       },
     });
     for (const a of world.actors) if (a.kind === 'human' && a.userId && !this.isOnline(a.userId)) setConnected(world, a.id, false);

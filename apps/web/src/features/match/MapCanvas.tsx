@@ -1,71 +1,49 @@
 import { useEffect, useRef } from 'react';
-import { T, TERRAIN, routePosition } from '@ceniza/engine';
-import type { ActorView } from '@ceniza/shared';
+import { T, routePosition } from '@ceniza/engine';
+import { appearanceOf, dayPhase, type ActorView, type Appearance, type PoiDTO } from '@ceniza/shared';
 import { gameNow, presentationProgress, useMatch } from '../../stores/match';
-import { portraitSrc } from '../../lib/media';
+import { TILE, paintTerrain } from './terrainArt';
+import { drawFigure, type Facing } from './figure';
 
 /**
- * Mapa básico de la arena en canvas 2D: terreno pintado una vez, personajes interpolados a 60 fps
- * desde sus rutas, arrastrar para mover la vista, rueda o botones para el zoom y un toque para ir.
- * El mapa ilustrado con PixiJS (relieve, ríos, rótulos, modo holograma) llega en la fase 7.
+ * Mapa de la arena en canvas 2D: terreno ilustrado horneado una vez (o en modo holograma), personajes
+ * animados interpolados a 60 fps desde sus rutas, puntos de interés con nombre al descubrirlos, ciclo de
+ * día y noche, niebla de guerra, arrastrar para mover la vista, rueda o pellizco para el zoom y un toque
+ * para ir. En el mapa nunca va la foto: va el personaje (GDD §5.9).
  */
-const TILE = 8;
+const SECTOR_LETTERS = 'ABCDEFGHIJKL';
 
-function hash(x: number, y: number, s: number) {
-  let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
-}
-
-function shade(hex: string, k: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const f = (v: number) => Math.max(0, Math.min(255, Math.round(v * k)));
-  return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;
-}
-
-function paintTerrain(size: number, tiles: Uint8Array, seedNum: number): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = c.height = size * TILE;
-  const g = c.getContext('2d')!;
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const t = tiles[y * size + x];
-      const r = hash(x, y, seedNum);
-      g.fillStyle = shade(TERRAIN[t]?.color ?? '#555555', 0.94 + r * 0.12);
-      g.fillRect(x * TILE, y * TILE, TILE, TILE);
-      const cx = x * TILE + TILE / 2;
-      const cy = y * TILE + TILE / 2;
-      if (t === T.BOSQUE || t === T.DENSO) {
-        g.fillStyle = t === T.DENSO ? 'rgba(10,22,10,0.55)' : 'rgba(16,30,14,0.4)';
-        g.beginPath();
-        g.arc(cx - 1 + r * 2, cy - 1, t === T.DENSO ? 3 : 2.4, 0, Math.PI * 2);
-        g.fill();
-      } else if (t === T.MONTANA || t === T.CUMBRE) {
-        g.fillStyle = t === T.CUMBRE ? 'rgba(255,255,255,0.35)' : 'rgba(40,34,26,0.35)';
-        g.beginPath();
-        g.moveTo(cx, cy - 3);
-        g.lineTo(cx + 3, cy + 2.5);
-        g.lineTo(cx - 3, cy + 2.5);
-        g.fill();
-      } else if (t === T.AGUA && r > 0.7) {
-        g.strokeStyle = 'rgba(160,200,205,0.18)';
-        g.beginPath();
-        g.moveTo(cx - 2.5, cy);
-        g.lineTo(cx + 2.5, cy);
-        g.stroke();
-      }
-    }
+function poiIcon(g: CanvasRenderingContext2D, kind: PoiDTO['kind'], x: number, y: number, s: number, holo: boolean) {
+  g.save();
+  g.translate(x, y);
+  g.scale(s, s);
+  g.lineWidth = 1.2;
+  g.strokeStyle = holo ? '#5fe3d0' : '#1d1810';
+  g.fillStyle = holo ? 'rgba(95,227,208,0.25)' : '#e8dcc0';
+  g.beginPath();
+  if (kind === 'ruinas') {
+    g.rect(-4, -5, 2.4, 8);
+    g.rect(1.6, -2, 2.4, 5);
+    g.rect(-5, 3, 10, 2);
+  } else if (kind === 'poblado') {
+    g.moveTo(-5, 4);
+    g.lineTo(-5, -1);
+    g.lineTo(0, -5);
+    g.lineTo(5, -1);
+    g.lineTo(5, 4);
+    g.closePath();
+  } else if (kind === 'cueva') {
+    g.moveTo(-6, 4);
+    g.quadraticCurveTo(0, -9, 6, 4);
+    g.closePath();
+  } else if (kind === 'manantial') {
+    g.moveTo(0, -5);
+    g.quadraticCurveTo(5, 1, 0, 4.5);
+    g.quadraticCurveTo(-5, 1, 0, -5);
   }
-  // Bordes entre biomas: una línea fina que dibuja la forma del terreno.
-  g.fillStyle = 'rgba(0,0,0,0.16)';
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const t = tiles[y * size + x];
-      if (x + 1 < size && tiles[y * size + x + 1] !== t) g.fillRect((x + 1) * TILE - 0.5, y * TILE, 1, TILE);
-      if (y + 1 < size && tiles[(y + 1) * size + x] !== t) g.fillRect(x * TILE, (y + 1) * TILE - 0.5, TILE, 1);
-    }
-  }
-  return c;
+  g.fill();
+  g.stroke();
+  g.restore();
 }
 
 function drawObelisk(g: CanvasRenderingContext2D, x: number, y: number, s: number) {
@@ -98,6 +76,8 @@ function drawObelisk(g: CanvasRenderingContext2D, x: number, y: number, s: numbe
 export interface MapApi {
   zoom(f: number): void;
   centerOnMe(): void;
+  /** Cambia entre el mapa ilustrado y el holograma; devuelve el modo nuevo. */
+  toggleMode(): 'carta' | 'holograma';
 }
 
 export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) => void; apiRef?: React.MutableRefObject<MapApi | null> }) {
@@ -105,6 +85,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
   const canvas = useRef<HTMLCanvasElement>(null);
   const size = useMatch((s) => s.size);
   const tiles = useMatch((s) => s.tiles);
+  const heights = useMatch((s) => s.heights);
   const seed = useMatch((s) => s.seed);
   const onCellRef = useRef(onCell);
   onCellRef.current = onCell;
@@ -112,23 +93,20 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
   useEffect(() => {
     const el = canvas.current;
     const box = wrap.current;
-    if (!el || !box || !tiles || !size) return;
+    if (!el || !box || !tiles || !heights || !size) return;
     const g = el.getContext('2d')!;
-    const terrain = paintTerrain(size, tiles, seed.length ? seed.charCodeAt(0) * 31 + seed.length : 7);
-    const images = new Map<string, HTMLImageElement>();
+    const seedNum = seed.length ? seed.charCodeAt(0) * 31 + seed.length : 7;
+    const carta = paintTerrain(size, tiles, heights, seedNum, 'carta');
+    let holo: HTMLCanvasElement | null = null;
+    let mode: 'carta' | 'holograma' = 'carta';
     const view = { scale: 1, ox: 0, oy: 0, w: 0, h: 0, dpr: 1, fitted: false };
     let raf = 0;
-
-    const imageFor = (a: ActorView) => {
-      const src = portraitSrc(a.portrait, a.color, 96);
-      let img = images.get(src);
-      if (!img) {
-        img = new Image();
-        img.decoding = 'async';
-        img.src = src;
-        images.set(src, img);
-      }
-      return img.complete && img.naturalWidth > 0 ? img : null;
+    const looks = new Map<string, Appearance>();
+    const facings = new Map<string, Facing>();
+    const lookOf = (a: ActorView) => {
+      let l = looks.get(a.id);
+      if (!l) looks.set(a.id, (l = appearanceOf(a)));
+      return l;
     };
 
     const posOf = (a: ActorView, t: number) => (a.route ? routePosition(a.route, t) : { x: a.x, y: a.y });
@@ -226,6 +204,11 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
           const p = myPos();
           centerOn(p.x, p.y);
         },
+        toggleMode: () => {
+          mode = mode === 'carta' ? 'holograma' : 'carta';
+          if (mode === 'holograma' && !holo) holo = paintTerrain(size, tiles, heights, seedNum, 'holograma');
+          return mode;
+        },
       };
     }
 
@@ -305,10 +288,37 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       g.fillStyle = '#0d1112';
       g.fillRect(0, 0, view.w, view.h);
       g.imageSmoothingEnabled = view.scale < 1;
-      g.drawImage(terrain, view.ox, view.oy, size * s, size * s);
+      const isHolo = mode === 'holograma' && !!holo;
+      g.drawImage(isHolo ? holo! : carta, view.ox, view.oy, size * s, size * s);
+      if (isHolo) {
+        // Retícula de sectores de la Ciudadela: A–L por columnas y 1–12 por filas.
+        const step = (size / 12) * s;
+        g.strokeStyle = 'rgba(95,227,208,0.16)';
+        g.lineWidth = 1;
+        g.beginPath();
+        for (let k = 0; k <= 12; k++) {
+          g.moveTo(view.ox + k * step, view.oy);
+          g.lineTo(view.ox + k * step, view.oy + size * s);
+          g.moveTo(view.ox, view.oy + k * step);
+          g.lineTo(view.ox + size * s, view.oy + k * step);
+        }
+        g.stroke();
+        g.fillStyle = 'rgba(95,227,208,0.6)';
+        g.font = '600 10px "Archivo Variable", Archivo, sans-serif';
+        g.textAlign = 'left';
+        g.textBaseline = 'top';
+        for (let k = 0; k < 12; k++) {
+          g.fillText(SECTOR_LETTERS[k], view.ox + k * step + 4, Math.max(48, view.oy + 4)); // bajo los rótulos de arriba
+          g.fillText(String(k + 1), Math.max(4, view.ox + 4), view.oy + k * step + 4);
+        }
+      }
       drawObelisk(g, view.ox + (st.center.x + 0.5) * s, view.oy + (st.center.y + 0.5) * s, Math.max(0.6, Math.min(2.2, view.scale)));
 
       const me = st.me ? st.actors[st.me] : null;
+      // Puntos de interés que ya conoces (el Obelisco siempre).
+      const known = (p: PoiDTO) => p.kind === 'obelisco' || st.phase === 'terminada' || (!!me?.explored && (me.explored & (1 << p.id)) !== 0);
+      const iconScale = Math.max(0.8, Math.min(1.8, view.scale * 0.55));
+      for (const p of st.pois) if (p.kind !== 'obelisco' && known(p)) poiIcon(g, p.kind, view.ox + (p.x + 0.5) * s, view.oy + (p.y + 0.5) * s, iconScale, isHolo);
       // Ruta propia: línea discontinua hasta el destino.
       if (me?.route && me.alive) {
         const r = me.route;
@@ -332,64 +342,73 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         g.stroke();
       }
 
-      const radius = Math.max(9, Math.min(22, s * 0.95));
+      const fig = Math.max(26, Math.min(64, s * 1.7));
       const list = st.order.map((id) => st.actors[id]).filter((a): a is ActorView => !!a && a.seen);
-      // Primero los caídos (debajo), después los vivos y el propio encima de todo.
-      list.sort((a, b) => Number(a.alive) - Number(b.alive) || Number(a.id === st.me) - Number(b.id === st.me));
+      // Primero los caídos (debajo); después, de arriba abajo, para que los de delante tapen a los de detrás.
+      list.sort((a, b) => Number(a.alive) - Number(b.alive) || posOf(a, now).y - posOf(b, now).y);
+      const plates: { a: ActorView; x: number; y: number }[] = [];
       for (const a of list) {
         const p = posOf(a, now);
         const x = view.ox + (p.x + 0.5) * s;
-        const y = view.oy + (p.y + 0.5) * s;
-        if (x < -40 || y < -40 || x > view.w + 40 || y > view.h + 40) continue;
-        if (!a.alive) {
-          g.strokeStyle = 'rgba(179,170,156,0.55)';
-          g.lineWidth = 2;
-          g.beginPath();
-          g.moveTo(x - 5, y - 5);
-          g.lineTo(x + 5, y + 5);
-          g.moveTo(x + 5, y - 5);
-          g.lineTo(x - 5, y + 5);
-          g.stroke();
-          continue;
+        const y = view.oy + (p.y + 0.75) * s;
+        if (x < -60 || y < -80 || x > view.w + 60 || y > view.h + 60) continue;
+        // Hacia dónde mira y cómo se mueve, a partir de su ruta.
+        let moving = false;
+        let running = false;
+        if (a.alive && a.route) {
+          const ahead = routePosition(a.route, now + 120);
+          const dx = ahead.x - p.x;
+          const dy = ahead.y - p.y;
+          if (Math.abs(dx) + Math.abs(dy) > 0.01) {
+            moving = true;
+            facings.set(a.id, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'E' : 'W') : dy > 0 ? 'S' : 'N');
+            running = Math.hypot(dx, dy) / 0.12 > 1.9;
+          }
         }
-        g.fillStyle = 'rgba(0,0,0,0.45)';
-        g.beginPath();
-        g.ellipse(x + 1.5, y + radius * 0.85, radius * 0.8, radius * 0.3, 0, 0, Math.PI * 2);
-        g.fill();
-        const img = imageFor(a);
-        g.save();
-        g.beginPath();
-        g.arc(x, y, radius, 0, Math.PI * 2);
-        g.clip();
-        if (img) g.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
-        else {
-          g.fillStyle = a.color;
-          g.fillRect(x - radius, y - radius, radius * 2, radius * 2);
-        }
-        g.restore();
-        g.lineWidth = 2.5;
-        g.strokeStyle = a.color;
+        const cx = Math.min(size - 1, Math.max(0, Math.round(p.x)));
+        const cy = Math.min(size - 1, Math.max(0, Math.round(p.y)));
+        const tile = tiles[cy * size + cx];
+        const swimming = a.alive && (tile === T.AGUA || tile === T.RIO);
+        const crouched = a.alive && !moving && tile === T.DENSO;
+        // Anillo del color del jugador a los pies (punteado si va con piloto automático).
+        g.lineWidth = a.id === st.me ? 2.2 : 1.6;
+        g.strokeStyle = a.id === st.me ? '#e6c97e' : a.color;
         if (!a.connected) g.setLineDash([3, 3]);
         g.beginPath();
-        g.arc(x, y, radius, 0, Math.PI * 2);
+        g.ellipse(x, y, fig * 0.24, fig * 0.09, 0, 0, Math.PI * 2);
         g.stroke();
         g.setLineDash([]);
-        if (a.id === st.me) {
-          g.lineWidth = 1.5;
-          g.strokeStyle = '#efe7da';
+        if (swimming) {
+          g.strokeStyle = 'rgba(200,230,232,0.55)';
+          g.lineWidth = 1;
           g.beginPath();
-          g.arc(x, y, radius + 3.5, 0, Math.PI * 2);
+          g.ellipse(x, y - fig * 0.12, fig * 0.2 + Math.sin(now * 0.006) * 1.5, fig * 0.06, 0, 0, Math.PI * 2);
           g.stroke();
+        } else if (a.alive) {
+          g.fillStyle = 'rgba(0,0,0,0.32)';
+          g.beginPath();
+          g.ellipse(x + 1.5, y, fig * 0.2, fig * 0.07, 0, 0, Math.PI * 2);
+          g.fill();
         }
-        if (a.id === st.me || radius >= 15) {
-          g.font = '600 11px "Archivo Variable", Archivo, sans-serif';
-          const w = g.measureText(a.name).width + 8;
-          g.fillStyle = 'rgba(10,12,13,0.78)';
-          g.fillRect(x - w / 2, y + radius + 4, w, 15);
-          g.fillStyle = a.id === st.me ? '#ff9152' : '#efe7da';
-          g.textAlign = 'center';
-          g.textBaseline = 'middle';
-          g.fillText(a.name, x, y + radius + 11.5);
+        drawFigure(g, lookOf(a), x, swimming ? y + fig * 0.22 : y, fig, {
+          facing: facings.get(a.id) ?? 'S',
+          t: now + (a.id.charCodeAt(0) % 7) * 137,
+          moving,
+          running,
+          swimming,
+          crouched,
+          dead: !a.alive,
+          celebrating: st.phase === 'terminada' && st.winnerId === a.id,
+        });
+        if (a.id === st.me || fig >= 40) plates.push({ a, x, y });
+      }
+
+      // Noche: la arena se oscurece al anochecer y aclara al amanecer.
+      if (st.day && st.phase === 'en_curso') {
+        const dark = dayPhase(now, st.day).darkness;
+        if (dark > 0) {
+          g.fillStyle = `rgba(6,10,28,${(0.5 * dark).toFixed(3)})`;
+          g.fillRect(0, 0, view.w, view.h);
         }
       }
 
@@ -405,6 +424,29 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         g.fillStyle = grad;
         g.fillRect(0, 0, view.w, view.h);
       }
+
+      // Rótulos por encima de la noche y la niebla, para que siempre se lean.
+      g.font = '600 11px "Archivo Variable", Archivo, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      for (const p of st.pois) {
+        if (!known(p) || (p.kind === 'obelisco' && view.scale < 1.2)) continue;
+        const x = view.ox + (p.x + 0.5) * s;
+        const y = view.oy + (p.y + 0.5) * s + iconScale * 9 + 8;
+        if (x < -100 || y < -20 || x > view.w + 100 || y > view.h + 20) continue;
+        const w = g.measureText(p.name).width + 10;
+        g.fillStyle = isHolo ? 'rgba(4,16,15,0.82)' : 'rgba(24,20,14,0.78)';
+        g.fillRect(x - w / 2, y - 8, w, 16);
+        g.fillStyle = isHolo ? '#5fe3d0' : '#e6c97e';
+        g.fillText(p.name, x, y);
+      }
+      for (const { a, x, y } of plates) {
+        const w = g.measureText(a.name).width + 8;
+        g.fillStyle = 'rgba(10,12,13,0.78)';
+        g.fillRect(x - w / 2, y + 5, w, 15);
+        g.fillStyle = a.id === st.me ? '#ff9152' : a.alive ? '#efe7da' : '#8f877b';
+        g.fillText(a.name, x, y + 12.5);
+      }
     };
     raf = requestAnimationFrame(draw);
 
@@ -418,7 +460,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       el.removeEventListener('wheel', wheel);
       if (apiRef) apiRef.current = null;
     };
-  }, [tiles, size, seed, apiRef]);
+  }, [tiles, heights, size, seed, apiRef]);
 
   return (
     <div ref={wrap} className="map-wrap">

@@ -37,6 +37,9 @@ const EnvSchema = z.object({
   MATCH_PRESENTATION_MS: z.coerce.number().int().min(0).max(120_000).default(8000),
   MATCH_COUNTDOWN_MS: z.coerce.number().int().min(0).max(60_000).default(15_000),
   MATCH_SNAPSHOT_MS: z.coerce.number().int().min(1000).max(120_000).default(10_000),
+  // Solo para pruebas: acorta el día y la noche (si no, van por el ritmo de la sala).
+  MATCH_DAY_MS: z.coerce.number().int().min(1000).optional(),
+  MATCH_NIGHT_MS: z.coerce.number().int().min(1000).optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -65,11 +68,13 @@ export const config = {
   adminUsernames: new Set(env.ADMIN_USERNAMES.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)),
   extraOrigins: new Set(env.EXTRA_ALLOWED_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)),
   sessionTtlMs: env.SESSION_TTL_DAYS * 24 * 3600 * 1000,
-  matchTimings: {
+  matchTimings: <{ lobbyCountdownMs: number; presentationMs: number; countdownMs: number; snapshotMs: number; dayMs?: number; nightMs?: number }>{
     lobbyCountdownMs: env.MATCH_LOBBY_COUNTDOWN_MS,
     presentationMs: env.MATCH_PRESENTATION_MS,
     countdownMs: env.MATCH_COUNTDOWN_MS,
     snapshotMs: env.MATCH_SNAPSHOT_MS,
+    dayMs: env.MATCH_DAY_MS,
+    nightMs: env.MATCH_NIGHT_MS,
   },
 };
 export type AppConfig = typeof config;

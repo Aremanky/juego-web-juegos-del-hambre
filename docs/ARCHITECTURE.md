@@ -1,9 +1,9 @@
 # Arquitectura técnica
 
-> Fases 2–5 · Estado: implementada y probada para usuarios, fotos, personajes, salas, lobby, el motor de partida
-> en tiempo real (inicio, sincronización, movimiento, pausa por votación, desconexiones y reinicios) y la capa de
-> reglas de la fase 5 (efectos según la situación, combate por rondas, detección y simulador de equilibrio).
-> Mapa ilustrado con personajes animados, inventario, eventos e IA de bots se añaden en las fases 6–10.
+> Fases 2–7 · Estado: implementada y probada para usuarios, fotos, personajes, salas, lobby, el motor de partida
+> en tiempo real, la capa de reglas de la fase 5, la IA de los bots (fase 6) y la arena completa (fase 7:
+> generador con ríos, caminos y puntos de interés, exploración, día y noche, mapa ilustrado y personajes
+> animados). Inventario, combate en partida, alianzas y eventos se añaden en las fases 8–10.
 
 ## Visión general
 
@@ -14,7 +14,7 @@
 │  · React Query (REST)        │                 │            │ http://127.0.0.1:3000           │
 │  · Zustand (estado de sala)  │                 │ ┌──────────▼─────────────────────────────┐   │
 │  · socket.io-client          │                 │ │ Node 22 · Fastify 5 · Socket.IO 4      │   │
-│  · Canvas 2D (fase 7: PixiJS)│                 │ │  REST: auth, fotos, plantillas, salas  │   │
+│  · Canvas 2D (mapa ilustrado)│                 │ │  REST: auth, fotos, plantillas, salas  │   │
 │  · (fase 10) ONNX/WebGPU     │                 │ │  Tiempo real: lobby, chat y partida    │   │
 └──────────────────────────────┘                 │ │  RoomManager → RoomRuntime → Match     │   │
                                                  │ └───────┬───────────────────────┬────────┘   │
@@ -49,7 +49,8 @@ se acepta desde el navegador.
 | Chat | `modules/chat` | Global y de sala (persistido); en partida según la configuración de sala | ✅ |
 | Tiempo real | `realtime/io.ts` | Autenticación de sockets, envoltorio de eventos, presencia | ✅ |
 | Partidas | `packages/engine` + `modules/matches` | Mundo, bucle a 10 Hz, fotogramas por jugador a 5 Hz, instantáneas, eventos | ✅ |
-| Mapa ilustrado, personajes animados, inventario, combate en partida, alianzas, eventos, bots IA, cómputo en la GPU del anfitrión, historial, administración | fases 6–10 | Ver GDD | ⏳ |
+| IA de bots | `packages/engine/src/ai.ts` | Utility AI de bots y piloto automático, con las mismas intenciones que un humano | ✅ |
+| Inventario, combate en partida, alianzas, eventos, cómputo en la GPU del anfitrión, historial, administración | fases 8–10 | Ver GDD | ⏳ |
 
 ## Salas: concurrencia y consistencia
 
@@ -93,9 +94,9 @@ Todos los eventos cliente → servidor usan confirmación: `Ack<T> = { ok: true,
 | `lobby:state` | Estado completo filtrado (versión creciente) |
 | `room:kicked`, `room:closed` | Fin de la membresía |
 | `chat:message`, `notify` | Mensajes y avisos |
-| `match:snapshot` | Mapa, reloj, personajes visibles y estado de pausa (al entrar, reconectar o cambiar de sala) |
+| `match:snapshot` | Mapa (terreno, relieve y puntos de interés), reloj, ciclo de día y noche, personajes visibles y estado de pausa (al entrar, reconectar o cambiar de sala) |
 | `match:frame` | Fotograma incremental a 5 Hz: solo los personajes que han cambiado para ese destinatario |
-| `match:event` | Avisos de la partida (fases, caídas, pausas, conexiones, final) |
+| `match:event` | Avisos de la partida (fases, caídas, pausas, conexiones, anochecer, amanecer, final). «Has llegado a…» solo se envía a quien descubre la región |
 
 Límite por socket: cubo de 25 fichas (10/s) y chat 5 (1,2/s). Carga máxima por mensaje: 256 KB.
 
@@ -140,7 +141,7 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
 | Nivel | Dónde | Cómo |
 |---|---|---|
 | Unitarias | `packages/shared/src/**/*.test.ts` | `npm test -w @ceniza/shared` |
-| Motor (determinismo, rutas, pausa, niebla, instantáneas, combate, equilibrio, estadísticas en partida) | `packages/engine/src/*.test.ts` | `npm test -w @ceniza/engine` |
+| Motor (determinismo, rutas, pausa, niebla, instantáneas, combate, equilibrio, estadísticas en partida, generador, día y noche, exploración, IA) | `packages/engine/src/*.test.ts` | `npm test -w @ceniza/engine` |
 | Informe de equilibrio | `docs/BALANCE.md` | `npm run balance` (400 enfrentamientos por pareja y escenario) |
 | Carga (24 humanos, mapa grande, niebla) | `apps/server/test/load.test.ts` → `docs/LOAD.md` | `npm run load` (30 s; con `npm test` dura 10 s) |
 | Integración (BD real + varios sockets) | `apps/server/test` | `npm test -w @ceniza/server` (usa `ceniza_test`) |
@@ -179,7 +180,7 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
   fotogramas lleguen a 5 Hz. Una orden nueva a mitad de paso termina ese paso primero: nunca hay teletransportes.
 - **Vista por jugador**: `computeView` filtra lo que ve cada uno. Con niebla, un vivo solo ve a quien está dentro
   de su radio de visión; de los demás solo se envía el paso en curso y el siguiente, nunca su destino. Los bots
-  usarán esta misma función (fase 6).
+  perciben con la misma regla (`perceive`).
 - **Fotogramas**: por cada socket se guarda lo último enviado y solo se mandan los personajes que han cambiado,
   más el reloj cada 2 s para corregir la deriva.
 - **Pausa por votación**: votan los humanos vivos y conectados (mayoría o unanimidad). La votación caduca a los 30 s.
@@ -188,8 +189,8 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
   gracia (contados en tiempo de juego, así una pausa no castiga). Al volver, el jugador recupera el control.
 - **Instantáneas**: cada 10 s, en cada cambio de fase y al apagar el servidor. Tras un reinicio, o si la sala se
   descarga de memoria por estar vacía, la partida vuelve en pausa con el mismo mundo.
-- **Piloto provisional**: hasta la IA de la fase 6, bots y desconectados en piloto eligen destinos cercanos y
-  caminan usando la misma API de intenciones que un humano.
+- **Bots y piloto automático**: desde la fase 6 los mueve la IA de `ai.ts` (sección «IA de los bots»), con la
+  misma API de intenciones que un humano.
 - **Final**: abandonar o quedar fuera por desconexión fija el puesto; con uno solo en pie, gana. Se guardan los
   puestos, el ganador y la instantánea final, y los participantes pueden volver a ver el resultado.
 - **Presentación**: mientras dura, la cámara del cliente sobrevuela la arena (vista general, espiral y descenso a tu
@@ -246,4 +247,45 @@ Servidor (autoridad)                         Navegador del anfitrión
   aceptado compartir para generar su personaje; nunca builds secretas ni datos de otras salas.
 - **Persistencia:** las piezas de personaje generadas se guardan como las fotos (`UPLOAD_DIR`, tabla propia,
   servidas solo a usuarios autenticados) y la apariencia del personaje las referencia por id.
+
+## IA de los bots (fase 6)
+
+`packages/engine/src/ai.ts`. Cada bot (y cada humano desconectado en piloto automático) piensa cuando le toca
+según su dificultad (de 0,8 a 2,5 s, escalonado) dentro del tick del servidor:
+
+1. **Percepción** (`perceive`): lo mismo que `computeView` daría a un humano en su asiento, con la visión por
+   terreno y por noche y la niebla de la sala. **Memoria** (`mind.seen`): última posición de cada uno, que se
+   olvida según la dificultad.
+2. **Estimación de combate** (`estimateOdds`): simulaciones con el motor de combate de la fase 5 (de 4 a 30
+   según la dificultad, con terreno en Difícil y Experto) y el error de su dificultad. Usa un PRNG propio por
+   pareja y una caché de 30–45 s escalonada, así no toca el azar del mundo ni produce picos.
+3. **Opciones** (utility AI): ir al Obelisco en el primer minuto, explorar la región sin descubrir más
+   cercana, acechar, huir hacia cobertura, esconderse y esperar. Cada una es un producto de consideraciones de
+   0 a 1 con compensación; se suma la inercia de lo que ya hace y el ruido de su dificultad y personalidad.
+4. **Acción**: `moveIntent`, la misma intención que valida el motor para un humano, en tramos de 40 casillas
+   como mucho. Solo se da una orden nueva si cambia el plan o el destino.
+
+Coste medido (23 bots, mapa grande, 5 min de partida): 1 ms de media por tick, p95 5 ms y p99 9 ms; el pico de
+unos 60 ms ocurre una vez, en los primeros ticks. El estado de la IA va en la instantánea, así que tras un
+reinicio los bots siguen con su memoria.
+
+## Arena (fase 7)
+
+- **Generador** (`map.ts`): relieve y humedad por ruido de valor; lagos, pantanos, roca, montaña y cumbres; ríos
+  por la mayor pendiente desde manantiales de montaña; puntos de interés con distancia mínima y nombre
+  (ruinas, poblados, cuevas y manantiales); caminos con A* y costes propios desde la explanada. Determinista por
+  semilla y de milisegundos en CPU. Los ids de terreno 0–8 no cambian, así que las partidas guardadas siguen
+  igual; los nuevos son 9–13 (camino, río, pantano, ruinas, poblado).
+- **Regiones y exploración**: cada casilla es de la región de su punto de interés más cercano (`regionGrid`,
+  calculada una vez). Entrar en una región la marca en `explored` (bit por región) y emite `descubre`, que el
+  servidor solo envía a ese jugador para no delatar su posición con niebla.
+- **Día y noche** (`shared/game/daynight.ts`): duraciones por ritmo de sala; el servidor ajusta la visión (tabla
+  `visionNight` por personaje y terreno) y avisa al anochecer y al amanecer; el cliente calcula la oscuridad con
+  la misma función y el reloj del juego.
+- **Mapa ilustrado** (`features/match/terrainArt.ts`): relieve sombreado con luz del noroeste a partir de las
+  alturas que manda la instantánea, curvas de nivel, decorado por bioma y ríos y caminos como trazos
+  continuos, todo horneado una vez en un canvas; modo holograma con retícula de sectores.
+- **Personajes animados** (`features/match/figure.ts` y `shared/game/appearance.ts`): figura de piezas con
+  ángulos por fotograma; la apariencia se deriva del personaje hasta el editor de la fase 10. Con el mapa
+  completo y los personajes, 55 fps en el Chrome sin GPU de las pruebas.
 

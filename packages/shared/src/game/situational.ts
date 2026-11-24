@@ -205,8 +205,8 @@ export interface MovementPerk {
 }
 
 export const MOVEMENT_PERKS: readonly MovementPerk[] = [
-  { source: district(4), terrain: ['agua', 'orilla'], cost: 1, text: 'nada sin penalización' },
-  { source: district(6), terrain: ['pradera', 'plaza'], speedMult: 1.08, text: '+8 % de velocidad en praderas y caminos' },
+  { source: district(4), terrain: ['agua', 'orilla', 'rio'], cost: 1, text: 'nada sin penalización' },
+  { source: district(6), terrain: ['pradera', 'plaza', 'camino'], speedMult: 1.08, text: '+8 % de velocidad en praderas y caminos' },
   { source: district(7), terrain: ['bosque', 'denso'], speedMult: 1.12, text: '+12 % de velocidad en el bosque' },
   { source: district(10), terrain: ['montana', 'roca'], cost: 1, text: 'sin penalización en montaña y roca' },
   { source: district(10), terrain: ['cumbre'], cost: 1.5, text: 'media penalización en las cumbres' },
@@ -225,8 +225,8 @@ export function terrainCosts(input: DerivedInput): number[] {
   });
 }
 
-/** Radio de visión de día en cada terreno para este personaje, en el orden de `TERRAIN_KINDS`. */
-export function visionByTerrain(input: DerivedInput, base?: DerivedStats): number[] {
+/** Radio de visión en cada terreno para este personaje (de día, o de noche con `night`), en el orden de `TERRAIN_KINDS`. */
+export function visionByTerrain(input: DerivedInput, base?: DerivedStats, night = false): number[] {
   const d = base ?? computeDerived(input);
-  return TERRAIN_KINDS.map((k) => Math.round(situationalStats(input, { terrain: k }, d).stats.visionRadius * 100) / 100);
+  return TERRAIN_KINDS.map((k) => Math.round(situationalStats(input, { terrain: k, night }, d).stats.visionRadius * 100) / 100);
 }

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { ActorView, MatchEventDTO, MatchFrame, MatchSnapshot } from '@ceniza/shared';
-import { decodeTiles } from '@ceniza/engine';
+import type { ActorView, DayCycleDTO, MatchEventDTO, MatchFrame, MatchSnapshot, PoiDTO } from '@ceniza/shared';
+import { decodeTiles, heightsFromTiles } from '@ceniza/engine';
 import { getSocket } from '../lib/socket';
 import { toast } from './toast';
 
@@ -13,6 +13,9 @@ interface MatchStore {
   seed: string;
   size: number;
   tiles: Uint8Array | null;
+  heights: Uint8Array | null;
+  pois: PoiDTO[];
+  day: DayCycleDTO | null;
   center: { x: number; y: number };
   visibility: 'visible' | 'niebla';
   phase: MatchSnapshot['phase'] | null;
@@ -39,6 +42,9 @@ const empty = {
   seed: '',
   size: 0,
   tiles: null,
+  heights: null,
+  pois: [],
+  day: null,
   center: { x: 0, y: 0 },
   visibility: 'visible' as const,
   phase: null,
@@ -64,6 +70,10 @@ export const useMatch = create<MatchStore>((set, get) => ({
         seed: snap.seed,
         size: snap.map.size,
         tiles: same && get().tiles ? get().tiles : decodeTiles(snap.map.tiles),
+        // Partidas anteriores a la fase 7 no traen relieve: se aproxima por el terreno.
+        heights: same && get().heights ? get().heights : snap.map.heights ? decodeTiles(snap.map.heights) : heightsFromTiles(decodeTiles(snap.map.tiles)),
+        pois: snap.map.pois ?? [],
+        day: snap.day ?? null,
         center: snap.map.center,
         visibility: snap.visibility,
         phase: snap.phase,
@@ -101,7 +111,7 @@ export const useMatch = create<MatchStore>((set, get) => ({
     s.on('match:event', (e: MatchEventDTO) => {
       set({ log: [...get().log, e].slice(-40) });
       if (e.kind === 'fin') toast.success(e.text);
-      else if (e.kind === 'eliminado' || e.kind === 'pausa' || e.kind === 'votacion') toast.info(e.text);
+      else if (e.kind === 'eliminado' || e.kind === 'pausa' || e.kind === 'votacion' || e.kind === 'descubre') toast.info(e.text);
     });
   },
 }));

@@ -2,7 +2,7 @@
  * Terrenos (GDD §7.2) y su efecto en las reglas. El índice de cada terreno coincide con su id en el
  * motor (`packages/engine/src/terrain.ts`), así el mapa codificado no necesita traducción.
  */
-export const TERRAIN_KINDS = ['agua', 'pradera', 'bosque', 'denso', 'roca', 'montana', 'cumbre', 'plaza', 'orilla'] as const;
+export const TERRAIN_KINDS = ['agua', 'pradera', 'bosque', 'denso', 'roca', 'montana', 'cumbre', 'plaza', 'orilla', 'camino', 'rio', 'pantano', 'ruinas', 'poblado'] as const;
 export type TerrainKind = (typeof TERRAIN_KINDS)[number];
 
 export interface TerrainRule {
@@ -29,6 +29,12 @@ export const TERRAIN_RULES: Record<TerrainKind, TerrainRule> = {
   cumbre: { name: 'Cumbre', cost: 3.0, vision: 1.3, cover: -4, high: true, flee: -0.05 },
   plaza: { name: 'Explanada del Obelisco', cost: 1.0, vision: 1.0, cover: -8, high: false, flee: -0.1 },
   orilla: { name: 'Orilla', cost: 1.1, vision: 1.0, cover: -4, high: false, flee: -0.1 },
+  // Fase 7: caminos, ríos y puntos de interés del generador completo (GDD §7.1–7.2).
+  camino: { name: 'Camino', cost: 0.8, vision: 1.0, cover: -8, high: false, flee: -0.1 },
+  rio: { name: 'Río', cost: 2.0, vision: 1.0, cover: -4, high: false, flee: -0.1 },
+  pantano: { name: 'Pantano', cost: 2.2, vision: 0.8, cover: 6, high: false, flee: 0.05 },
+  ruinas: { name: 'Ruinas', cost: 1.3, vision: 0.9, cover: 5, high: false, flee: 0.05 },
+  poblado: { name: 'Poblado', cost: 1.1, vision: 0.9, cover: 4, high: false, flee: 0 },
 };
 
 export function terrainKind(id: number): TerrainKind {

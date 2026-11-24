@@ -35,6 +35,8 @@ export default defineConfig({
       MATCH_LOBBY_COUNTDOWN_MS: '1500',
       MATCH_PRESENTATION_MS: '4000',
       MATCH_COUNTDOWN_MS: '2000',
+      MATCH_DAY_MS: '12000',
+      MATCH_NIGHT_MS: '20000',
     },
   },
 });

@@ -44,7 +44,7 @@ const HAIR_TONES = [
 const LINE = '#8f7f66';
 
 export const CAMEO_HAIR_STYLES = ['corto', 'melena', 'mono', 'trenza', 'rizos', 'cresta', 'rapado', 'capucha', 'coleta'] as const;
-type HairStyle = (typeof CAMEO_HAIR_STYLES)[number];
+export type HairStyle = (typeof CAMEO_HAIR_STYLES)[number];
 
 const f = (n: number) => (Math.round(n * 10) / 10).toString();
 
