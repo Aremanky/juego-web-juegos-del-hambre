@@ -22,8 +22,9 @@ npm install
 cp .env.example .env     # ajusta: NODE_ENV=development, DATABASE_URL, UPLOAD_DIR=./var/uploads, SERVE_STATIC=false
 npm run dev              # servidor en :3000 y web en http://localhost:5173
 ```
-
+ 
 ## Comandos
+
 
 | Comando | Qué hace |
 |---|---|
@@ -47,5 +48,5 @@ apps/server       Fastify + Socket.IO + Drizzle (PostgreSQL)
 apps/web          React + Vite
 deploy/           systemd, Caddy, Nginx, cloudflared y scripts de instalación y copias
 docs/             diseño, arquitectura y despliegue
-e2e/              pruebas de navegador con varios usuarios
+e2e/              pruebas de navegador con varios usuarios.
 ```
