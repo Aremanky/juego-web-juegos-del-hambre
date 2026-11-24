@@ -160,7 +160,10 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await expect(a.getByText(/La partida empieza en/)).toBeVisible();
   await expect(b.getByText(/La partida empieza en/)).toBeVisible();
 
-  // ── Fase 4: presentación, cuenta atrás y arena en tiempo real
+  // ── Fase 4: sobrevuelo de la arena, presentación, cuenta atrás y arena en tiempo real
+  await expect(a.getByRole('heading', { name: 'La arena', exact: true })).toBeVisible({ timeout: 10_000 });
+  await a.waitForTimeout(700);
+  await shot(a, '20-sobrevuelo', false);
   await expect(a.getByRole('heading', { name: 'Los Elegidos' })).toBeVisible({ timeout: 10_000 });
   await expect(b.locator('.map-canvas')).toBeVisible();
   await a.waitForTimeout(900);

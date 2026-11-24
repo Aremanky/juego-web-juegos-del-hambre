@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { districtById, type ActorView, type LobbyState, type MatchSnapshot } from '@ceniza/shared';
 import { ConfirmButton, Portrait } from '../../components/ui';
 import { emitAck } from '../../lib/socket';
-import { gameNow, serverNow, useMatch } from '../../stores/match';
+import { gameNow, presentationProgress, serverNow, useMatch } from '../../stores/match';
 import { act } from '../lobby/LobbyParts';
 import { MapCanvas, type MapApi } from './MapCanvas';
 
@@ -87,7 +87,7 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
         </div>
         {canAct && <p className="map-hint">Toca una casilla para ir. Arrastra para mover la vista.</p>}
 
-        {m.phase === 'presentacion' && <Presentation actors={actors} />}
+        {m.phase === 'presentacion' && <Presentation actors={actors} mapSize={m.size} />}
         {m.phase === 'cuenta_atras' && m.phaseEndsAt != null && !m.paused && <Countdown endsAt={m.phaseEndsAt} />}
         {m.paused && <PauseOverlay myUser={myUser} amAlive={!!me?.alive} />}
         {m.phase === 'terminada' && showResults && <Results actors={actors} winnerId={m.winnerId} onClose={() => setShowResults(false)} />}
@@ -191,8 +191,22 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
   );
 }
 
-function Presentation({ actors }: { actors: ActorView[] }) {
+function Presentation({ actors, mapSize }: { actors: ActorView[]; mapSize: number }) {
+  // Primero el sobrevuelo de la arena (el mapa se ve entero detrás) y después los Elegidos.
+  const flyover = presentationProgress() < 0.4;
   const list = [...actors].sort((a, b) => a.district - b.district || a.gender.localeCompare(b.gender));
+  if (flyover) {
+    return (
+      <div className="overlay presentation flyover">
+        <div className="arena-caption">
+          <h2 className="display presentation-title">La arena</h2>
+          <p>
+            {mapSize} por {mapSize} casillas, generada para esta partida. En el centro, la explanada del Obelisco.
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="overlay presentation">
       <h2 className="display presentation-title">Los Elegidos</h2>

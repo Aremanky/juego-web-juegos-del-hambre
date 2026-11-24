@@ -33,7 +33,7 @@ export default defineConfig({
       STATIC_DIR: 'apps/web/dist',
       LOG_LEVEL: 'warn',
       MATCH_LOBBY_COUNTDOWN_MS: '1500',
-      MATCH_PRESENTATION_MS: '2500',
+      MATCH_PRESENTATION_MS: '4000',
       MATCH_COUNTDOWN_MS: '2000',
     },
   },

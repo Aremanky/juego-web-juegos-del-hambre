@@ -142,6 +142,7 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
 | Unitarias | `packages/shared/src/**/*.test.ts` | `npm test -w @ceniza/shared` |
 | Motor (determinismo, rutas, pausa, niebla, instantáneas, combate, equilibrio, estadísticas en partida) | `packages/engine/src/*.test.ts` | `npm test -w @ceniza/engine` |
 | Informe de equilibrio | `docs/BALANCE.md` | `npm run balance` (400 enfrentamientos por pareja y escenario) |
+| Carga (24 humanos, mapa grande, niebla) | `apps/server/test/load.test.ts` → `docs/LOAD.md` | `npm run load` (30 s; con `npm test` dura 10 s) |
 | Integración (BD real + varios sockets) | `apps/server/test` | `npm test -w @ceniza/server` (usa `ceniza_test`) |
 | Extremo a extremo (Chrome, 2 usuarios, escritorio + móvil) | `e2e/` | `npm run build -w @ceniza/web && npm run test:e2e` |
 
@@ -191,6 +192,11 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
   caminan usando la misma API de intenciones que un humano.
 - **Final**: abandonar o quedar fuera por desconexión fija el puesto; con uno solo en pie, gana. Se guardan los
   puestos, el ganador y la instantánea final, y los participantes pueden volver a ver el resultado.
+- **Presentación**: mientras dura, la cámara del cliente sobrevuela la arena (vista general, espiral y descenso a tu
+  sitio) a partir del reloj de juego: como la partida empieza en t = 0, el avance es `t / fin de la fase`.
+- **Rendimiento** (`MatchPerf`): cada partida mide la duración de sus últimos 1200 ticks y lo que envía. Con 24
+  humanos, mapa grande y niebla, el tick p95 es de unos 2 ms de los 100 disponibles (`docs/LOAD.md`). Tras una
+  intención solo reciben fotograma inmediato los sockets a los que les cambia algo; antes se forzaba a todos.
 
 ## Reglas de la fase 5: estadísticas en juego
 

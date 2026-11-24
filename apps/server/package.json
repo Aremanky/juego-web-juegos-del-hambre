@@ -1,6 +1,6 @@
 {
   "name": "@ceniza/server",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "load": "LOAD_REPORT=1 vitest run test/load.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/scripts/migrate.ts",
     "admin:promote": "tsx src/scripts/promote.ts"
