@@ -57,7 +57,7 @@ export const ABILITIES: Record<AbilityKey, AbilityDef> = {
   },
   golpeBrutal: {
     key: 'golpeBrutal', name: 'Golpe brutal', kind: 'combate', icon: 'Hammer', requirement: req({ attr: 'potencia', min: 5 }),
-    description: 'Tu siguiente golpe cuerpo a cuerpo hace +60% de daño y puede aturdir (50%). Una vez por combate.',
+    description: 'Tu siguiente golpe cuerpo a cuerpo hace +50% de daño y puede aturdir (35%). Una vez por combate.',
   },
   contraataque: {
     key: 'contraataque', name: 'Contraataque', kind: 'combate', icon: 'Swords', requirement: req({ attr: 'reflejos', min: 5 }),

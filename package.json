@@ -1,7 +1,7 @@
 {
   "name": "juegos-ceniza",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Los Juegos de la Ceniza — videojuego web multijugador de supervivencia en tiempo real",
   "type": "module",
   "workspaces": [
@@ -19,7 +19,8 @@
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "playwright test",
     "db:generate": "npm run db:generate -w @ceniza/server",
-    "db:migrate": "npm run db:migrate -w @ceniza/server"
+    "db:migrate": "npm run db:migrate -w @ceniza/server",
+    "balance": "npm run balance -w @ceniza/engine"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",

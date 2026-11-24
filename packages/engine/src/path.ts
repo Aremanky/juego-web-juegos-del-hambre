@@ -63,11 +63,13 @@ class Heap {
   }
 }
 
-export function stepCost(map: GameMap, to: Cell, diagonal: boolean): number {
-  return (diagonal ? Math.SQRT2 : 1) * terrainCost(tileAt(map, to.x, to.y));
+/** `costs`: coste de cada terreno para un personaje concreto (ventajas de distrito); por defecto, el del terreno. */
+export function stepCost(map: GameMap, to: Cell, diagonal: boolean, costs?: readonly number[]): number {
+  const tile = tileAt(map, to.x, to.y);
+  return (diagonal ? Math.SQRT2 : 1) * (costs ? costs[tile] : terrainCost(tile));
 }
 
-export function findPath(map: GameMap, from: Cell, to: Cell, maxExpanded = 30_000): Cell[] | null {
+export function findPath(map: GameMap, from: Cell, to: Cell, maxExpanded = 30_000, costs?: readonly number[]): Cell[] | null {
   if (!inBounds(map, to.x, to.y) || !inBounds(map, from.x, from.y)) return null;
   if (from.x === to.x && from.y === to.y) return [];
   const n = map.size;
@@ -76,10 +78,12 @@ export function findPath(map: GameMap, from: Cell, to: Cell, maxExpanded = 30_00
   const g = new Float64Array(n * n).fill(Infinity);
   const came = new Int32Array(n * n).fill(-1);
   const closed = new Uint8Array(n * n);
+  // Heurística admisible: con ventajas de distrito una casilla puede costar menos de 1.
+  const minCost = costs ? Math.min(1, ...costs) : 1;
   const h = (i: number) => {
     const dx = Math.abs((i % n) - to.x);
     const dy = Math.abs(Math.floor(i / n) - to.y);
-    return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
+    return (Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy)) * minCost;
   };
   const open = new Heap();
   g[start] = 0;
@@ -99,7 +103,7 @@ export function findPath(map: GameMap, from: Cell, to: Cell, maxExpanded = 30_00
       if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
       const ni = ny * n + nx;
       if (closed[ni]) continue;
-      const cost = g[cur] + dist * terrainCost(map.tiles[ni]);
+      const cost = g[cur] + dist * (costs ? costs[map.tiles[ni]] : terrainCost(map.tiles[ni]));
       if (cost < g[ni]) {
         g[ni] = cost;
         came[ni] = cur;

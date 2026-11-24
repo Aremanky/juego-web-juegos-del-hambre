@@ -1,6 +1,7 @@
 # LOS JUEGOS DE LA CENIZA — Documento de Diseño (GDD)
 
-> Versión 1.0 · Fase 1 · Fuente de verdad del diseño. Las cifras exactas viven en
+> Versión 1.1 (fase 5: equilibrio, personaje animado, personalización y GPU del anfitrión) · Fuente de
+> verdad del diseño. Las cifras exactas viven en
 > `packages/shared/src/game/` (atributos, habilidades, rasgos, distritos…) y este documento
 > explica el *porqué*. Si una cifra cambia en el código tras pruebas de equilibrio, se anota aquí.
 
@@ -194,14 +195,15 @@ Daño c/c          = ×(1 + 0,07·(Pot−5))
 Esquiva           = 4% + 2,2%·Ref         (activa al esquivar ×2,5)
 Iniciativa        = Ref + velocidad de arma
 Precisión dist.   = 55% + 4%·Ins          (máx. 95%)
+Daño a distancia  = ×(1 + 0,05·(Ins−5))
 Crítico           = 4% + 1,2%·Ins
 Radio de visión   = 6 + 0,6·Ins casillas  (×terreno ×noche ×clima)
 Poder de detección= 10 + 3·Ins
 Poder de sigilo   = 10 + 3·Sig (+cobertura de terreno, noche, −movimiento)
 Ruido al moverse  = 5 − 0,3·Sig casillas  (correr ×2)
-Daño de emboscada = ×(1,5 + 0,05·Sig)
+Daño de emboscada = ×(1,5 + 0,1·Sig)
 Tiempo fabricar   = ×(1,3 − 0,05·Ing)
-Calidad fabricada = ±4%·(Ing−5)
+Calidad fabricada = ±6%·(Ing−5)
 Eficacia curación = ×(1 + 0,06·(Ing−5))
 Tiempo de búsqueda= 8 s ×(1,2 − 0,04·Ins); rendimiento ×(1 + 0,06·(Ins−5))
 Hambre            = ×(1 + 0,04·(Pot−5)) ×(1 − 0,035·(Agu−5))
@@ -223,7 +225,7 @@ Para quien no quiere complicarse; el editor los muestra comparados con tu repart
 | Arquetipo | Pot | Ref | Agu | Ins | Sig | Ing | Car |
 |---|---|---|---|---|---|---|---|
 | Equilibrado | 5 | 5 | 5 | 5 | 5 | 5 | 5 |
-| Cazador | 7 | 6 | 6 | 6 | 3 | 3 | 3 |
+| Cazador | 7 | 6 | 5 | 6 | 4 | 3 | 3 |
 | Sombra | 3 | 7 | 4 | 5 | 8 | 3 | 2 |
 | Superviviente | 4 | 5 | 8 | 6 | 3 | 5 | 2 |
 | Ingeniero | 3 | 4 | 5 | 6 | 4 | 8 | 3 |
@@ -244,7 +246,7 @@ Algunas exigen un mínimo de atributo, lo que crea sinergias con tu reparto.
 | Carrera | Ref 4 | Activa | +60% velocidad 8 s · 25 energía · recarga 60 s |
 | Camuflaje | Sig 4 | Activa | Oculto al instante incluso en abierto, +10 sigilo 25 s · recarga 90 s |
 | Rastrear | Ins 4 | Activa | Revela rastros (última posición y rumbo) en 30 casillas 20 s · recarga 75 s |
-| Golpe brutal | Pot 5 | Combate | Siguiente golpe c/c +60% daño, 50% aturdir · 1/combate |
+| Golpe brutal | Pot 5 | Combate | Siguiente golpe c/c +50% daño, 35% aturdir · 1/combate |
 | Contraataque | Ref 5 | Combate | Esa ronda, cada esquiva devuelve un golpe al 70% · 1/combate |
 | Primeros auxilios | Ing 4 | Activa | Cura 18 PV y corta sangrado sin objetos · 6 s · recarga 120 s |
 | Trampero | Ing 5 | Pasiva | Trampas en la mitad de tiempo, −1 material, +1 activa, +20% daño |
@@ -267,7 +269,7 @@ Cada rasgo tiene ventaja **y** contrapartida.
 | Leal | Bonos de alianza +50%, reputación inicial 60 | Traicionar: *Remordimiento* (−15% a todo 3 min) y −45 reputación |
 | Oportunista | Traiciones +50% favor y +25% daño en el golpe de traición | Reputación inicial 35; los bots desconfían |
 | Sangre fría | Inmune a Pánico/Intimidar; +10% precisión con <50% PV | −15% favor (aburres al público) |
-| Temerario | +15% daño en el primer ataque de cada combate, +5% velocidad persiguiendo | +10% daño recibido |
+| Temerario | +15% daño en el primer ataque de cada combate, +5% velocidad persiguiendo | +15% daño recibido |
 | Precavido | +20% detección de trampas y emboscadas | −5% velocidad |
 | Solitario | +10% búsqueda, sigilo y daño sin aliados | Alianzas de 2 como máximo y pierde el bono con aliado |
 | Metabolismo rápido | +40% regeneración de salud y energía | +25% hambre y sed |
@@ -315,12 +317,56 @@ dentro de un evento · termina entre los 5 últimos.
 - **Umbral de huida:** 20% / 35% / 50% PV.
 - **Alianzas automáticas:** Aceptar · Evaluar (IA) · Rechazar.
 
-### 5.9 Apariencia y fotos
+### 5.9 Apariencia: personaje animado, personalización y fotos
 
-Foto de retrato (marcador del mapa, lobby, clasificación, combate), foto de victoria opcional y foto de
-caído (por defecto, el retrato en blanco y negro). Color identificativo, marco del marcador (laurel,
-hexágono, llama, sencillo), epíteto ("la Implacable") y biografía corta para la presentación. Plantillas
-guardadas en el servidor, reutilizables entre partidas y dispositivos.
+**En el mapa nunca aparece la foto.** Cada participante es un **personaje animado** con su apariencia. La
+foto se queda en la interfaz: lobby, presentación de los Elegidos, clasificación, tarjeta del participante,
+combate, resultados y perfil. También sirve para crear el personaje a su imagen (abajo).
+
+**Personaje en el mapa (fase 7).**
+- Vista cenital en 3/4. Cinco direcciones dibujadas (S, SE, E, NE, N) y las otras tres en espejo.
+- Esqueleto 2D con huesos: el mismo juego de animaciones sirve para cualquier combinación de piezas, así
+  que personalizar no obliga a redibujar animaciones.
+- Animaciones mínimas: reposo, andar, correr, nadar, trepar, agacharse y esconderse, buscar o recoger,
+  fabricar, comer y beber, atacar cuerpo a cuerpo y a distancia, defender, esquivar, recibir golpe, caer
+  aturdido, morir y celebrar. Se suman gestos sociales: saludar, señalar y proponer pacto.
+- Legible a 32–64 px de alto, con el color del jugador en la silueta y el nombre bajo los pies.
+- Los estados se ven en el personaje: herido, envenenado, agotado o escondido.
+
+**Sistema de personalización (amplio).** La apariencia se guarda como un JSON compacto y versionado
+(piezas + parámetros). El servidor la valida y la usan igual personajes y bots: a un bot se le genera una
+apariencia coherente a partir de su semilla.
+- Cuerpo: complexión, altura y proporciones con deslizadores continuos.
+- Piel: tono continuo, sin una paleta cerrada.
+- Cara: forma, ojos (forma y color), cejas, nariz, boca, orejas y arrugas.
+- Pelo: decenas de peinados paramétricos (largo, volumen, raya, flequillo), color y mechas; también barba
+  y bigote.
+- Marcas: cicatrices, pecas, lunares, tatuajes y pintura de guerra con posición libre.
+- Ropa: uniforme base del distrito con corte, capas y colores editables, más accesorios (capucha, sombrero,
+  bufanda, capa, guantes, gafas, joyas).
+- Gestos y poses: pose de presentación, pose de victoria y gesto de burla.
+- Piezas desbloqueables por logros (§14). Ninguna da ventaja de juego: la apariencia es solo estética.
+
+**Crear el personaje desde una foto (fase 10).** En el editor, «Crear desde una foto» analiza la foto en
+la GPU del navegador (§17):
+1. Puntos de la cara y segmentación del pelo y la piel.
+2. Rasgos: tono de piel, color y forma del pelo, forma de la cara, color de ojos, barba, gafas, marcas
+   visibles.
+3. Asignación a las piezas del catálogo que mejor encajan, con deslizadores ajustados a las proporciones.
+4. **Si ninguna pieza encaja, se crea una nueva.** Los peinados y las barbas son paramétricos, así que se
+   ajusta uno a la silueta de la foto. Las gafas, las marcas y los accesorios singulares se generan con un
+   modelo de imagen local. Lo hace en el estilo del juego y sobre la plantilla de la ranura (máscara,
+   tamaño, pivote y huesos), para que funcione con todas las animaciones.
+5. Control automático de la pieza: transparencia real, tamaño, paleta y que no se rompa en ninguna
+   animación. Después se guarda en el servidor como «pieza generada» del usuario, igual que una foto:
+   persiste, se reutiliza en otros personajes y se puede borrar.
+
+Siempre se puede retocar el resultado a mano. Sin GPU suficiente, la creación hace solo el paso 3, que no
+necesita GPU, o encarga la generación al anfitrión de una sala (§17).
+
+**Identidad.** Color identificativo, epíteto («la Implacable») y biografía corta para la presentación.
+Foto de victoria opcional y foto de caído (por defecto, el retrato en blanco y negro). Plantillas guardadas
+en el servidor, reutilizables entre partidas y dispositivos.
 
 ---
 
@@ -357,28 +403,40 @@ Rejilla de 64², 96² o 128² casillas (1 casilla ≈ 20 m). Altura y humedad co
 mínimos locales, ríos por descenso de pendiente desde manantiales de montaña, biomas por altura × humedad.
 Llanura central para el Obelisco. Puntos de interés por muestreo Poisson con restricciones, caminos entre
 ellos (A* barato en llano), puentes y vados en los cruces con ríos, y nombres generados ("Bosque de los
-Susurros", "Cumbres del Eco"). El **servidor genera** el mapa y envía la rejilla compacta; el cliente solo
-lo dibuja (sin problemas de determinismo entre navegadores).
+Susurros", "Cumbres del Eco"). El **servidor genera** la rejilla de juego (terreno, alturas, ríos, PDI) y la
+envía compacta: es barato en CPU y así no hay problemas de determinismo entre navegadores. Lo pesado va en
+GPU (§17):
+- El mapa ilustrado (relieve sombreado, texturas, vegetación, agua animada) lo dibuja cada cliente con
+  WebGL/WebGPU.
+- Los pasos de generación que necesiten GPU (erosión, síntesis de texturas, decorado por IA) los calcula
+  **la GPU del anfitrión de la sala** a partir de la semilla. El servidor guarda el resultado y lo reparte.
+  Solo puede ser visual o comprobable: nada de lo que calcula el anfitrión decide el juego sin que el
+  servidor lo valide.
 
 ### 7.2 Biomas
+
+Los biomas que ya existen en la partida (pradera, orilla, bosque, bosque denso, roca, montaña, cumbre, lago y la
+explanada del Obelisco) usan las cifras de `packages/shared/src/game/terrain.ts`. Las cifras de visión del
+código (bosque ×0,85 y ×0,7, altura ×1,15 y ×1,3) son más suaves que las del primer borrador de esta tabla; se
+revisarán en la fase 7, cuando el mapa tenga caminos, ríos y puntos de interés.
 
 | Bioma | Coste mov. | Visión propia | Cobertura | Recursos | Peligros |
 |---|---|---|---|---|---|
 | Camino | 0,8 | 1,0 | −8 | — | Expuesto |
 | Pradera | 1,0 | 1,0 | −4 | Hierbas, raíces, piedras, caza menor | Expuesto, calor |
-| Playa/orilla | 1,1 | 1,0 | −6 | Agua turbia, conchas, pesca | — |
-| Bosque | 1,4 | 0,75 | +6 | Madera, palos, ramas, bayas, resina, plumas | Incendios, bestias |
-| Bosque denso | 1,8 | 0,55 | +10 | Lo mismo, más rico | Emboscadas |
+| Playa/orilla | 1,1 | 1,0 | −4 | Agua turbia, conchas, pesca | — |
+| Bosque | 1,4 | 0,85 | +6 | Madera, palos, ramas, bayas, resina, plumas | Incendios, bestias |
+| Bosque denso | 1,8 | 0,7 | +10 | Lo mismo, más rico | Emboscadas |
 | Pantano | 2,2 | 0,8 | +6 | Hierbas raras, resina | Enfermedad |
-| Zona rocosa | 1,5 | 1,1 | +3 | Piedra, pedernal, cuevas | Derrumbes |
-| Montaña | 2,5 | 1,4 | 0 | Pedernal, nieve (agua) | Frío nocturno, caídas corriendo |
-| Cumbre | 3,0 | 1,6 | −2 | Nieve | Frío constante |
+| Zona rocosa | 1,5 | 1,0 | +3 | Piedra, pedernal, cuevas | Derrumbes |
+| Montaña | 2,5 | 1,15 | +3 | Pedernal, nieve (agua) | Frío nocturno, caídas corriendo |
+| Cumbre | 3,0 | 1,3 | −4 | Nieve | Frío constante |
 | Río / vado | 2,0 | 1,0 | −4 | Agua, pesca | Corriente |
 | Lago | Nadar 3,0 | 1,0 | −8 | Agua, pesca | Energía, sin acciones |
 | Ruinas | 1,3 | 0,9 | +5 | Chatarra, cuerda, tela, herramientas | Trampas antiguas |
 | Poblado | 1,1 | 0,9 | +4 | Raciones, tela, cuerda, medicinas básicas | Disputado |
 | Instalación | 1,2 | 0,9 | +3 | Medicinas, gafas, explosivos | Defensas automáticas |
-| Obelisco | 1,0 | 1,0 | −6 | El mejor botín | Estallido inicial |
+| Obelisco | 1,0 | 1,0 | −8 | El mejor botín | Estallido inicial |
 | Cueva/refugio | 1,2 | 0,6 | +8 | — | Descanso +50%, protege del clima |
 
 ### 7.3 Evolución de la arena
@@ -398,10 +456,14 @@ cuevas nuevas), cajas de suministro y reabastecimiento del Obelisco. El mapa no 
 
 ### 7.5 Interacción
 
-Zoom y arrastre (rueda, pellizco), tocar marcador → tarjeta (foto, nombre, humano/bot, estado, salud si es
-visible, última posición, alianzas). Tocar casilla → destino con ruta y tiempo estimado previsualizados.
-Capas: peligros, recursos conocidos, PDI, eventos. Marcadores circulares con la **foto real** y anillo del
-color del jugador, con movimiento interpolado suave.
+Zoom y arrastre (rueda, pellizco), tocar a un personaje → tarjeta (foto, nombre, humano/bot, estado, salud
+si es visible, última posición, alianzas). Tocar casilla → destino con ruta y tiempo estimado
+previsualizados. Capas: peligros, recursos conocidos, PDI, eventos. En el mapa se ven los **personajes
+animados** (§5.9) con el color del jugador y movimiento interpolado suave; la foto solo aparece en la
+tarjeta y en la interfaz.
+
+*Estado en la 0.5:* el mapa provisional de la fase 4 aún dibuja un círculo con el retrato. Lo sustituyen
+los personajes animados en la fase 7.
 
 ---
 
@@ -529,6 +591,17 @@ las **mismas intenciones** que un humano por la misma API validada.
   traición × (1 − lealtad).
 - **Diálogo:** frases plantilla por personalidad y situación (propuesta, aceptación, rechazo, burla de
   traición, súplica).
+- **Dónde piensa cada parte:**
+  - La utility AI corre en el servidor. Es barata en CPU y deja la partida reproducible.
+  - Lo que necesite GPU corre en **la GPU del anfitrión de la sala** (WebGPU con transformers.js u ONNX
+    Runtime Web, modelos alojados en la VM):
+    - un modelo de lenguaje pequeño para que los bots hablen en el chat con su personalidad;
+    - una red de decisión para la dificultad Experto;
+    - la evaluación masiva de combates.
+  - El anfitrión envía las **mismas intenciones** que enviaría un humano y el servidor las valida igual.
+  - Si el anfitrión se desconecta o no tiene GPU, los bots siguen con la utility AI del servidor y las
+    frases plantilla. La partida nunca depende del dispositivo del anfitrión.
+  - Ningún modelo del anfitrión recibe más información de la que vería el bot (`computeView`).
 
 | Personalidad | Agresión | Cautela | Sociab. | Lealtad | Codicia | Curiosidad | Paranoia | Azar |
 |---|---|---|---|---|---|---|---|---|
@@ -606,29 +679,76 @@ expulsa y puede forzar el inicio. Si se desconecta más de 90 s, el rol pasa a o
 
 ## 16. Método de equilibrio
 
-- Partidas *headless* en las pruebas: N simulaciones con bots de dificultad fija usando cada arquetipo.
-  Objetivo: ningún arquetipo con una tasa de victoria por encima de 1,5× la media, ni por debajo de 0,5×.
+- **Simulador de encuentros (fase 5, hecho).** `npm run balance` enfrenta a los ocho arquetipos por parejas
+  en cinco escenarios con el motor de combate real y escribe `docs/BALANCE.md`:
+  - a campo abierto;
+  - emboscada en el bosque;
+  - segundo día con armas fabricadas;
+  - tercer día de desgaste;
+  - con testigos.
+  
+  Una prueba automática falla si un arquetipo sale de ×0,5–×1,5 de la media. Hoy el rango va de ×0,84
+  (Diplomático) a ×1,16 (Cazador), y cada estilo tiene un escenario donde destaca.
+- **Ajustes que salieron de la simulación:**
+  - Golpe brutal: +50 % de daño y 35 % de aturdir (antes +60 % y 50 %).
+  - Temerario: +15 % de daño recibido (antes +10 %).
+  - Daño de emboscada: 1,5 + 0,1·Sig (antes +0,05).
+  - Calidad fabricada: ±6 % por punto de Ingenio (antes ±4 %).
+  - Daño a distancia: escala con Instinto.
+  - Ojo certero: suma su +15 % de precisión.
+  - El Cazador pasa un punto de Aguante a Sigilo.
+- **Prueba de fuerza en el editor.** El mismo simulador enfrenta cualquier build a los ocho arquetipos,
+  en un worker para no trabar la página.
+- Partidas *headless* completas en las pruebas, cuando haya bots con IA (fase 6): N simulaciones con bots
+  de dificultad fija usando cada arquetipo. Objetivo: ningún arquetipo con una tasa de victoria por encima
+  de 1,5× la media, ni por debajo de 0,5×.
 - Métricas: duración media por ritmo, tiempo hasta la primera sangre, % de muertes por evento frente a
   combate (objetivo: eventos <25%), uso de cada habilidad y tasa de traición.
 - Los ajustes se reflejan en las tablas de `packages/shared/src/game/` y en este documento.
 
 ---
 
-## 17. Retrato con IA usando la GPU del cliente (plan)
+## 17. GPU de los jugadores: el anfitrión de la sala y el editor (plan)
 
-Sin servicios externos: inferencia **en el navegador** con ONNX Runtime Web (WebGPU, o WASM en modo ligero)
-y modelos **autoalojados en la VM** (`/models`, descargados una vez en la instalación).
+La VM no tiene GPU, y no se usan servicios externos. Todo lo que necesita GPU se calcula **en el navegador**:
+- WebGPU con transformers.js u ONNX Runtime Web; WASM en modo ligero.
+- Modelos **autoalojados en la VM** (`/models`, descargados una vez en la instalación) y cacheados en el
+  navegador.
 
-1. Segmentación de la persona (modelo pequeño tipo MODNet) → recorte limpio.
-2. Estilización pictórica del retrato (red generativa ligera tipo AnimeGAN/estilo cómic, ~10 MB).
-   Funciona incluso en móviles por WASM.
-3. Composición: fondo y gradación del distrito, marco y color del jugador → **"Retrato de Elegido"**.
-4. *Modo avanzado* solo con WebGPU potente: img2img con un difusor rápido de un paso (tipo SD-Turbo,
-   ~2 GB, descarga única y cacheada en el navegador).
+**Quién pone la GPU:**
 
-El resultado se sube a la biblioteca como una foto más, así que persiste y se reutiliza. Se detecta la
-capacidad del dispositivo y se elige el modo adecuado, avisando al usuario. Se documentará la licencia de
-cada modelo (uso privado no comercial).
+| Trabajo | Dónde | Si no hay GPU |
+|---|---|---|
+| Generación del mapa que necesite GPU (erosión, texturas, decorado) | Anfitrión de la sala | Mapa con el generador de CPU del servidor y texturas procedurales |
+| IA de bots que necesite GPU (lenguaje, red de decisión Experto, evaluación de combates) | Anfitrión de la sala | Utility AI del servidor y frases plantilla |
+| Crear un personaje desde una foto y generar sus piezas (§5.9) | El propio jugador, en el editor | Solo asignación a piezas existentes; la generación queda pendiente y la hace el anfitrión de la próxima sala, si el jugador lo permite |
+| Retrato estilizado para la interfaz | El propio jugador | Foto sin estilizar |
+| Dibujar el mapa ilustrado y los personajes animados | Cada jugador, su propia pantalla | Calidad baja: menos efectos y animación a menos fotogramas |
+
+**Cómo funciona el cómputo del anfitrión:**
+1. Al crear la sala, el navegador del anfitrión mide su capacidad (WebGPU, memoria, una prueba corta) y la
+   comunica.
+2. El servidor le encarga trabajos por Socket.IO con plazo y tamaño máximos. El anfitrión los ejecuta en
+   un worker para que su partida siga fluida, y devuelve el resultado.
+3. **La GPU del anfitrión calcula; el servidor decide.** Los resultados visuales se aceptan tal cual, porque
+   no cambian el juego. Los que afectan al juego, como las intenciones de bots, pasan la misma validación
+   que las de un humano. Un anfitrión tramposo no puede dar ventaja a nadie.
+4. Si el anfitrión se va, el servidor reparte los trabajos al siguiente humano con GPU o vuelve a los modos
+   de CPU. Ningún trabajo de GPU es imprescindible para jugar.
+5. Privacidad: el anfitrión solo recibe lo que necesita el trabajo, como la vista del bot o la foto que el
+   jugador ha aceptado compartir para generar su personaje. No recibe datos de otras partidas ni las
+   builds secretas.
+
+**Retrato estilizado y personaje desde foto (fase 10):**
+- Segmentación de la persona (tipo MODNet).
+- Puntos de la cara (tipo FaceMesh) y segmentación del pelo.
+- Estilización pictórica del retrato (red ligera, unos 10 MB, también por WASM en móviles).
+- Piezas nuevas generadas en el estilo del juego: img2img con un difusor rápido de un paso (tipo SD-Turbo,
+  unos 2 GB, solo con WebGPU potente) sobre la plantilla de la ranura.
+
+Los resultados se suben a la biblioteca del usuario (fotos y piezas generadas), así que persisten y se
+reutilizan. Se detecta la capacidad del dispositivo y se elige el modo adecuado, avisando al usuario. Se
+documentará la licencia de cada modelo (uso privado no comercial).
 
 ---
 

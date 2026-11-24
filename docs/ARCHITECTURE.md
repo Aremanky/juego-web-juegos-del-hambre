@@ -1,8 +1,9 @@
 # Arquitectura técnica
 
-> Fases 2–4 · Estado: implementada y probada para usuarios, fotos, personajes, salas, lobby y el motor de partida
-> en tiempo real (inicio, sincronización, movimiento, pausa por votación, desconexiones y reinicios).
-> Mapa ilustrado, combate, inventario, eventos e IA de bots se añaden en las fases 5–9 sobre esta base.
+> Fases 2–5 · Estado: implementada y probada para usuarios, fotos, personajes, salas, lobby, el motor de partida
+> en tiempo real (inicio, sincronización, movimiento, pausa por votación, desconexiones y reinicios) y la capa de
+> reglas de la fase 5 (efectos según la situación, combate por rondas, detección y simulador de equilibrio).
+> Mapa ilustrado con personajes animados, inventario, eventos e IA de bots se añaden en las fases 6–10.
 
 ## Visión general
 
@@ -30,8 +31,8 @@ se acepta desde el navegador.
 
 | Paquete | Contenido |
 |---|---|
-| `packages/shared` | Reglas del juego y contratos: atributos y fórmulas (`derived.ts`), habilidades, rasgos, defectos, distritos, arquetipos, personalidades/dificultades de bots, fábrica de bots, generador de retratos SVG, PRNG serializable, esquemas zod de API/sockets y tipos del estado del lobby. Lo usan servidor y cliente: la vista previa del editor calcula exactamente lo mismo que el servidor. |
-| `packages/engine` | Simulación de la partida sin E/S: generador de mapa por semilla, A* con coste de terreno, rutas con hora de llegada, tick a 10 Hz, intenciones, pausa por votación, desconexiones, vista por jugador (`computeView`), instantáneas con el PRNG. Lo usan el servidor (autoridad) y el cliente (decodificar el mapa e interpolar rutas). |
+| `packages/shared` | Reglas del juego y contratos: atributos y fórmulas (`derived.ts`), habilidades, rasgos, defectos, distritos, arquetipos, personalidades/dificultades de bots, fábrica de bots, generador de retratos SVG, PRNG serializable, esquemas zod de API/sockets y tipos del estado del lobby. Desde la fase 5 también: terrenos (`terrain.ts`), armas y protecciones (`items.ts`), efectos según la situación (`situational.ts`) y el desglose de cada estadística (`breakdown.ts`). Lo usan servidor y cliente: la vista previa del editor calcula exactamente lo mismo que el servidor. |
+| `packages/engine` | Simulación de la partida sin E/S: generador de mapa por semilla, A* con coste de terreno, rutas con hora de llegada, tick a 10 Hz, intenciones, pausa por votación, desconexiones, vista por jugador (`computeView`), instantáneas con el PRNG. Desde la fase 5: combate por rondas y detección (`combat.ts`) y simulador de equilibrio (`balance.ts`, `npm run balance`). Lo usan el servidor (autoridad) y el cliente (decodificar el mapa e interpolar rutas). |
 | `apps/server` | Fastify + Socket.IO + Drizzle. Módulos independientes en `src/modules/*`. |
 | `apps/web` | SPA React. `src/features/*` por pantalla, `src/components` comunes, `src/styles` sistema visual. |
 | `deploy/` | systemd, Caddy, Nginx, cloudflared y scripts de instalación, actualización, copias y restauración. |
@@ -48,7 +49,7 @@ se acepta desde el navegador.
 | Chat | `modules/chat` | Global y de sala (persistido); en partida según la configuración de sala | ✅ |
 | Tiempo real | `realtime/io.ts` | Autenticación de sockets, envoltorio de eventos, presencia | ✅ |
 | Partidas | `packages/engine` + `modules/matches` | Mundo, bucle a 10 Hz, fotogramas por jugador a 5 Hz, instantáneas, eventos | ✅ |
-| Mapa, movimiento, inventario, combate, alianzas, eventos, bots IA, historial, administración | fases 5–10 | Ver GDD | ⏳ |
+| Mapa ilustrado, personajes animados, inventario, combate en partida, alianzas, eventos, bots IA, cómputo en la GPU del anfitrión, historial, administración | fases 6–10 | Ver GDD | ⏳ |
 
 ## Salas: concurrencia y consistencia
 
@@ -139,7 +140,8 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
 | Nivel | Dónde | Cómo |
 |---|---|---|
 | Unitarias | `packages/shared/src/**/*.test.ts` | `npm test -w @ceniza/shared` |
-| Motor (determinismo, rutas, pausa, niebla, instantáneas) | `packages/engine/src/*.test.ts` | `npm test -w @ceniza/engine` |
+| Motor (determinismo, rutas, pausa, niebla, instantáneas, combate, equilibrio, estadísticas en partida) | `packages/engine/src/*.test.ts` | `npm test -w @ceniza/engine` |
+| Informe de equilibrio | `docs/BALANCE.md` | `npm run balance` (400 enfrentamientos por pareja y escenario) |
 | Integración (BD real + varios sockets) | `apps/server/test` | `npm test -w @ceniza/server` (usa `ceniza_test`) |
 | Extremo a extremo (Chrome, 2 usuarios, escritorio + móvil) | `e2e/` | `npm run build -w @ceniza/web && npm run test:e2e` |
 
@@ -189,3 +191,53 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
   caminan usando la misma API de intenciones que un humano.
 - **Final**: abandonar o quedar fuera por desconexión fija el puesto; con uno solo en pie, gana. Se guardan los
   puestos, el ganador y la instantánea final, y los participantes pueden volver a ver el resultado.
+
+## Reglas de la fase 5: estadísticas en juego
+
+Tres capas, de la más estable a la más cambiante. Las tres son funciones puras que comparten servidor,
+cliente y simulador:
+
+1. **Estadísticas base** (`computeDerived`): atributos + distrito + habilidades + rasgo + defecto.
+   `explainDerived` reproduce el mismo cálculo paso a paso para que el editor muestre de dónde sale cada
+   cifra. Una prueba comprueba con builds al azar que el desglose da exactamente el valor del motor.
+2. **Efectos según la situación** (`situationalStats`): terreno, noche, salud baja, escondido, trepando,
+   a la carrera, primer ataque, tipo de arma, actividad… Cada efecto es un dato con su origen (`SITUATIONAL_MODIFIERS`,
+   `MOVEMENT_PERKS`) y una prueba exige que apunte a un distrito, habilidad o rasgo que exista.
+3. **Resolución** (`packages/engine/src/combat.ts`): combate por rondas (distancia, iniciativa, acierto,
+   crítico, esquiva, defensa, aturdimiento, huida, tregua), detección de ocultos y política de combate de los
+   bots. Todo con el PRNG de la partida, así que es determinista y reproducible.
+
+Ya aplicado en la partida: el coste de cada terreno por personaje (ventajas de distrito en A* y en las rutas)
+y el radio de visión según el terreno que pisa (bosque denso ×0,7, cumbre ×1,3), que respeta la niebla de
+guerra. Las partidas guardadas por la 0.4 se recuperan con las reglas de entonces.
+
+El combate, la detección y las actividades se conectarán al mundo con los sistemas de las fases 7–8 (mapa,
+recursos, inventario); hoy los usan el simulador y la prueba de fuerza del editor, que corre `runMatchups`
+en un Web Worker.
+
+## Cómputo en la GPU del anfitrión (plan, fases 6–10)
+
+La VM no tiene GPU. Lo que la necesite (IA de bots con modelos, pasos de generación del mapa, generar piezas
+de personaje desde una foto) se ejecuta en el navegador del **anfitrión de la sala** con WebGPU, o en el del
+propio jugador cuando el trabajo es suyo (el editor). Diseño:
+
+```
+Servidor (autoridad)                         Navegador del anfitrión
+  ComputeBroker por sala  ── compute:job ──►   worker WebGPU (transformers.js / ONNX Runtime Web)
+  plazo, tamaño y vista mínima                 modelos servidos por la VM desde /models (caché)
+  valida o descarta        ◄─ compute:result ─ resultado (intenciones, texturas, piezas)
+  reparte / guarda
+```
+
+- **Capacidad:** al crear la sala o al pasar el rol, el cliente mide WebGPU, memoria y una prueba corta, y la
+  anuncia (`compute:caps`). El broker solo encarga trabajos que el dispositivo puede hacer.
+- **Autoridad:** los resultados visuales se guardan tal cual. Lo que afecta al juego vuelve como intención y
+  pasa la misma validación que la de un humano, así que un anfitrión tramposo no consigue ventaja.
+- **Tolerancia a fallos:** cada trabajo tiene plazo. Si vence o el anfitrión se va, el broker lo reasigna a
+  otro humano con GPU o usa el modo de CPU del servidor (utility AI, generador procedural, asignación de
+  piezas sin generar). Ningún trabajo de GPU es imprescindible para jugar.
+- **Privacidad:** el anfitrión recibe solo la vista filtrada del bot (`computeView`) o la foto que su dueño ha
+  aceptado compartir para generar su personaje; nunca builds secretas ni datos de otras salas.
+- **Persistencia:** las piezas de personaje generadas se guardan como las fotos (`UPLOAD_DIR`, tabla propia,
+  servidas solo a usuarios autenticados) y la apariencia del personaje las referencia por id.
+

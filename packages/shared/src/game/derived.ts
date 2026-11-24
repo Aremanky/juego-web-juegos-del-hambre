@@ -23,6 +23,7 @@ export interface DerivedStats {
   moveSpeed: number; // casillas/s en terreno de coste 1
   carryCapacity: number; // kg
   meleeMult: number;
+  rangedMult: number;
   rangedAccuracy: number; // 0..0.95
   critChance: number;
   dodgeChance: number;
@@ -34,7 +35,7 @@ export interface DerivedStats {
   noiseRadius: number; // casillas al caminar
   ambushMult: number;
   craftTimeMult: number;
-  craftQuality: number; // −0.16..+0.20
+  craftQuality: number; // −0.24..+0.30
   healEfficiency: number;
   trapPower: number;
   searchTimeMult: number;
@@ -64,7 +65,8 @@ export function computeDerived(input: DerivedInput): DerivedStats {
   let moveSpeed = 0.9 + 0.07 * a.reflejos;
   const carryCapacity = 8 + 1.5 * a.potencia;
   const meleeMult = 1 + 0.07 * (a.potencia - 5);
-  const rangedAccuracy = clamp(0.55 + 0.04 * a.instinto, 0, 0.95);
+  const rangedMult = 1 + 0.05 * (a.instinto - 5);
+  let rangedAccuracy = 0.55 + 0.04 * a.instinto;
   const critChance = 0.04 + 0.012 * a.instinto;
   const dodgeChance = 0.04 + 0.022 * a.reflejos;
   const initiative = a.reflejos;
@@ -73,9 +75,9 @@ export function computeDerived(input: DerivedInput): DerivedStats {
   let detectionPower = 10 + 3 * a.instinto;
   const stealthPower = 10 + 3 * a.sigilo;
   let noiseRadius = Math.max(1.5, 5 - 0.3 * a.sigilo);
-  const ambushMult = 1.5 + 0.05 * a.sigilo;
+  const ambushMult = 1.5 + 0.1 * a.sigilo;
   let craftTimeMult = 1.3 - 0.05 * a.ingenio;
-  const craftQuality = 0.04 * (a.ingenio - 5);
+  const craftQuality = 0.06 * (a.ingenio - 5);
   let healEfficiency = 1 + 0.06 * (a.ingenio - 5);
   let trapPower = 1 + 0.08 * (a.ingenio - 5);
   const searchTimeMult = 1.2 - 0.04 * a.instinto;
@@ -103,6 +105,7 @@ export function computeDerived(input: DerivedInput): DerivedStats {
   if (ab.has('showman')) favorMult *= 1.35;
   if (ab.has('trampero')) trapPower *= 1.2;
   if (ab.has('labia')) socialAppeal += 0.25;
+  if (ab.has('ojoCertero')) rangedAccuracy += 0.15;
 
   // Rasgos
   if (t === 'sangreFria') favorMult *= 0.85;
@@ -143,7 +146,8 @@ export function computeDerived(input: DerivedInput): DerivedStats {
     moveSpeed: round(moveSpeed, 3),
     carryCapacity: round(carryCapacity, 1),
     meleeMult: round(meleeMult, 3),
-    rangedAccuracy: round(rangedAccuracy, 3),
+    rangedMult: round(rangedMult, 3),
+    rangedAccuracy: round(clamp(rangedAccuracy, 0, 0.95), 3),
     critChance: round(critChance, 3),
     dodgeChance: round(dodgeChance, 3),
     initiative,
@@ -179,30 +183,33 @@ export interface DerivedDisplay {
   higherIsBetter: boolean;
 }
 
-const pct = (v: number) => `${Math.round(v * 100)}%`;
-const mult = (v: number) => `×${v.toFixed(2)}`;
-const num = (dec = 0) => (v: number) => v.toFixed(dec);
+/** Decimales con coma y « %» separado, como se escribe en español. */
+const dec = (v: number, digits: number) => v.toFixed(digits).replace('.', ',');
+const pct = (v: number) => `${Math.round(v * 100)}\u00a0%`;
+const mult = (v: number) => `×${dec(v, 2)}`;
+const num = (digits = 0) => (v: number) => dec(v, digits);
 
 export const DERIVED_DISPLAY: DerivedDisplay[] = [
   { key: 'maxHp', label: 'Salud máx.', group: 'Supervivencia', format: num(), higherIsBetter: true },
   { key: 'maxEnergy', label: 'Energía máx.', group: 'Supervivencia', format: num(), higherIsBetter: true },
-  { key: 'energyRegen', label: 'Regeneración de energía', group: 'Supervivencia', format: (v) => `${v.toFixed(1)}/s`, higherIsBetter: true },
+  { key: 'energyRegen', label: 'Regeneración de energía', group: 'Supervivencia', format: (v) => `${dec(v, 1)}/s`, higherIsBetter: true },
   { key: 'hungerRate', label: 'Hambre', group: 'Supervivencia', format: mult, higherIsBetter: false },
   { key: 'thirstRate', label: 'Sed', group: 'Supervivencia', format: mult, higherIsBetter: false },
   { key: 'statusResist', label: 'Resistencia a estados', group: 'Supervivencia', format: pct, higherIsBetter: true },
-  { key: 'moveSpeed', label: 'Velocidad', group: 'Movimiento y percepción', format: (v) => `${v.toFixed(2)} c/s`, higherIsBetter: true },
-  { key: 'carryCapacity', label: 'Carga máx.', group: 'Movimiento y percepción', format: (v) => `${v.toFixed(1)} kg`, higherIsBetter: true },
-  { key: 'visionRadius', label: 'Radio de visión', group: 'Movimiento y percepción', format: (v) => `${v.toFixed(1)} c`, higherIsBetter: true },
+  { key: 'moveSpeed', label: 'Velocidad', group: 'Movimiento y percepción', format: (v) => `${dec(v, 2)} c/s`, higherIsBetter: true },
+  { key: 'carryCapacity', label: 'Carga máx.', group: 'Movimiento y percepción', format: (v) => `${dec(v, 1)} kg`, higherIsBetter: true },
+  { key: 'visionRadius', label: 'Radio de visión', group: 'Movimiento y percepción', format: (v) => `${dec(v, 1)} c`, higherIsBetter: true },
   { key: 'detectionPower', label: 'Detección', group: 'Movimiento y percepción', format: num(), higherIsBetter: true },
   { key: 'stealthPower', label: 'Sigilo', group: 'Movimiento y percepción', format: num(), higherIsBetter: true },
-  { key: 'noiseRadius', label: 'Ruido al moverte', group: 'Movimiento y percepción', format: (v) => `${v.toFixed(1)} c`, higherIsBetter: false },
+  { key: 'noiseRadius', label: 'Ruido al moverte', group: 'Movimiento y percepción', format: (v) => `${dec(v, 1)} c`, higherIsBetter: false },
   { key: 'meleeMult', label: 'Daño cuerpo a cuerpo', group: 'Combate', format: mult, higherIsBetter: true },
+  { key: 'rangedMult', label: 'Daño a distancia', group: 'Combate', format: mult, higherIsBetter: true },
   { key: 'rangedAccuracy', label: 'Precisión a distancia', group: 'Combate', format: pct, higherIsBetter: true },
   { key: 'critChance', label: 'Crítico', group: 'Combate', format: pct, higherIsBetter: true },
   { key: 'dodgeChance', label: 'Esquiva', group: 'Combate', format: pct, higherIsBetter: true },
   { key: 'ambushMult', label: 'Daño de emboscada', group: 'Combate', format: mult, higherIsBetter: true },
   { key: 'craftTimeMult', label: 'Tiempo de fabricación', group: 'Oficio', format: mult, higherIsBetter: false },
-  { key: 'craftQuality', label: 'Calidad fabricada', group: 'Oficio', format: (v) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`, higherIsBetter: true },
+  { key: 'craftQuality', label: 'Calidad fabricada', group: 'Oficio', format: (v) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}\u00a0%`, higherIsBetter: true },
   { key: 'trapPower', label: 'Potencia de trampas', group: 'Oficio', format: mult, higherIsBetter: true },
   { key: 'healEfficiency', label: 'Eficacia curando', group: 'Oficio', format: mult, higherIsBetter: true },
   { key: 'searchYield', label: 'Rendimiento al buscar', group: 'Oficio', format: mult, higherIsBetter: true },

@@ -60,6 +60,19 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await shot(a, '06-editor-identidad');
   await a.getByRole('tab', { name: 'Habilidades y rasgos' }).click();
   await shot(a, '07-editor-habilidades');
+
+  // ── Desglose de estadísticas y prueba de fuerza (fase 5)
+  await a.getByRole('tab', { name: 'Atributos' }).click();
+  await a.getByRole('button', { name: /^Velocidad/ }).click();
+  await expect(a.locator('.why')).toContainText('Solo depende de los atributos');
+  await expect(a.locator('.situational')).toContainText('+12 % de velocidad en el bosque');
+  await expect(a.locator('.situational')).toContainText('Daño recibido ×1,15 siempre');
+  await shot(a, '17-editor-desglose');
+  await a.getByRole('tab', { name: 'Prueba de fuerza' }).click();
+  await expect(a.getByText('de media contra los arquetipos')).toBeVisible({ timeout: 20_000 });
+  await expect(a.locator('table.strength tbody tr')).toHaveCount(5);
+  await expect(a.getByText(/combates simulados por casilla/)).toBeVisible({ timeout: 20_000 });
+  await shot(a, '18-prueba-de-fuerza');
   await a.getByRole('button', { name: 'Guardar personaje' }).click();
   await expect(a.getByRole('heading', { name: 'Kael' })).toBeVisible();
 
@@ -106,6 +119,9 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await b.getByRole('tab', { name: 'Identidad' }).click();
   await b.getByLabel('Nombre del personaje').fill('Nara');
   await b.getByRole('button', { name: 'Femenino' }).click();
+  await b.getByRole('tab', { name: 'Prueba de fuerza' }).click();
+  await expect(b.getByText(/combates simulados por casilla/)).toBeVisible({ timeout: 30_000 });
+  await shot(b, '19-prueba-de-fuerza-movil');
   await b.getByRole('button', { name: 'Guardar en la sala' }).click();
   await expect(b.locator('.mychar-name')).toHaveText('Nara');
   await b.getByRole('tab', { name: /Sala/ }).click();

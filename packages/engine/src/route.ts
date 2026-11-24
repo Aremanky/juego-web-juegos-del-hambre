@@ -8,14 +8,14 @@ import { stepCost } from './path.js';
  */
 export type Route = RouteDTO;
 
-export function buildRoute(map: GameMap, start: Cell, path: Cell[], t0: number, speed: number): Route {
+export function buildRoute(map: GameMap, start: Cell, path: Cell[], t0: number, speed: number, costs?: readonly number[]): Route {
   const cells = [start.x, start.y];
   const times = [t0];
   let t = t0;
   let prev = start;
   for (const c of path) {
     const diagonal = c.x !== prev.x && c.y !== prev.y;
-    t += Math.round((stepCost(map, c, diagonal) / speed) * 1000);
+    t += Math.round((stepCost(map, c, diagonal, costs) / speed) * 1000);
     cells.push(c.x, c.y);
     times.push(t);
     prev = c;
