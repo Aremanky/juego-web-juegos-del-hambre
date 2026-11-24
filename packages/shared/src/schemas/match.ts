@@ -50,6 +50,8 @@ export interface ActorView {
   vision: number | null;
   /** Regiones descubiertas (bit i = región i): solo el propio personaje. */
   explored?: number | null;
+  /** Velocidad y coste de cada terreno: solo el propio personaje, para prever sus rutas igual que el servidor. */
+  move?: { speed: number; costs: number[] } | null;
   /** Casilla donde empieza su ruta, o donde está si no se mueve (−1 si no se ve). */
   x: number;
   y: number;

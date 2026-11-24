@@ -24,6 +24,19 @@ export interface ViewBox {
 
 const LEVELS = [16, 32, 48] as const;
 
+/**
+ * Píxeles reales por casilla de los bloques para un zoom. Si el zoom es un número entero (el mapa lo deja así en
+ * reposo), los bloques se hacen a ese tamaño y se copian sin escalar: sin GPU, escalarlos con filtro era lo que más
+ * costaba de cada fotograma. Si no (mientras se pellizca o se gira la rueda), el nivel fijo que toque. 8 es la vista
+ * general del mapa.
+ */
+export function chunkLevel(need: number): number {
+  if (need <= 12) return 8;
+  const n = Math.round(need);
+  if (Math.abs(need - n) < 1e-6 && n <= 48) return n;
+  return need <= 22 ? 16 : need <= 38 ? 32 : 48;
+}
+
 export class TerrainView {
   private cache = new Map<string, Entry>();
   private overviews: Partial<Record<MapMode, HTMLCanvasElement>> = {};
@@ -50,7 +63,7 @@ export class TerrainView {
     this.frame++;
     const s = v.scale * TILE;
     const need = s * v.dpr;
-    const level = need <= 12 ? 8 : need <= 22 ? 16 : need <= 38 ? 32 : 48;
+    const level = chunkLevel(need);
     const size = this.art.size;
     const ov = this.overview(mode);
     g.save();

@@ -94,6 +94,16 @@ describe('arena de la fase 7 con bots de la fase 6', () => {
     expect(events.get('ana')!.some((e) => e.kind === 'anochece')).toBe(true);
   });
 
+  it('la instantánea lleva velocidad y costes solo del propio jugador', async () => {
+    const s = await A.emit<MatchSnapshot>('match:sync', {});
+    expect(s.ok).toBe(true);
+    if (!s.ok) return;
+    const mine = s.data.actors.find((a) => a.id === s.data.me)!;
+    expect(mine.move?.speed).toBeGreaterThan(0);
+    expect(mine.move?.costs.length).toBeGreaterThan(10);
+    for (const a of s.data.actors) if (a.id !== s.data.me) expect(a.move ?? null).toBeNull();
+  });
+
   it('las frases de los bots solo llegan a quien los ve', async () => {
     const w = srv.ctx.roomManager.get(roomId)!.match!.world;
     const b = w.actors.find((a) => a.kind === 'bot' && a.alive)!;

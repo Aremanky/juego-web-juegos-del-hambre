@@ -345,26 +345,36 @@ function concat(head: Route | null, tail: Route): Route {
   return { cells: [...head.cells, ...tail.cells.slice(2)], times: [...head.times, ...tail.times.slice(1)] };
 }
 
+export type PlanResult = { ok: true; route: Route | null; arrival: number } | { ok: false; error: string };
+
+/**
+ * La ruta que haría una orden de ir a `to`, sin aplicarla: el tramo en curso hasta la casilla siguiente más
+ * el nuevo. La usan el servidor (`moveIntent`) y la vista previa del cliente, así que lo que se ve antes de
+ * ir es lo que luego hace el servidor. `route: null` si el destino es esa misma casilla y se queda allí.
+ */
+export function planRoute(map: GameMap, from: { x: number; y: number; route: Route | null }, to: Cell, t: number, speed: number, costs?: readonly number[]): PlanResult {
+  if (!inBounds(map, to.x, to.y)) return { ok: false, error: 'Ese destino está fuera de la arena' };
+  const stop = nextStop(from.route, { x: from.x, y: from.y }, t);
+  const head = from.route ? truncateAfterCurrent(from.route, t) : null;
+  const kept = head && head.times.length > 1 ? head : null;
+  if (stop.cell.x === to.x && stop.cell.y === to.y) return { ok: true, route: kept, arrival: stop.time };
+  const path = findPath(map, stop.cell, to, undefined, costs);
+  if (!path) return { ok: false, error: 'No hay camino hasta ahí' };
+  if (path.length > MAX_ROUTE_CELLS) return { ok: false, error: 'Demasiado lejos para una sola orden: elige un punto más cercano' };
+  const route = concat(kept, buildRoute(map, stop.cell, path, stop.time, speed, costs));
+  return { ok: true, route, arrival: routeEndTime(route) };
+}
+
 /** Ir a una casilla. Si está a mitad de un paso, lo termina y sigue desde ahí. */
 export function moveIntent(w: World, actorId: string, to: Cell): void {
   const a = requireActive(w, actorById(w, actorId));
-  if (!inBounds(w.map, to.x, to.y)) throw new IntentError('Ese destino está fuera de la arena');
-  const stop = nextStop(a.route, { x: a.x, y: a.y }, w.t);
-  const head = a.route ? truncateAfterCurrent(a.route, w.t) : null;
-  if (stop.cell.x === to.x && stop.cell.y === to.y) {
-    a.route = head && head.times.length > 1 ? head : null;
-    return;
+  const plan = planRoute(w.map, a, to, w.t, a.speed, a.costs);
+  if (!plan.ok) throw new IntentError(plan.error);
+  if (!a.route && plan.route) {
+    a.x = plan.route.cells[0];
+    a.y = plan.route.cells[1];
   }
-  const path = findPath(w.map, stop.cell, to, undefined, a.costs);
-  if (!path) throw new IntentError('No hay camino hasta ahí');
-  if (path.length > MAX_ROUTE_CELLS) throw new IntentError('Demasiado lejos para una sola orden: elige un punto más cercano');
-  const tail = buildRoute(w.map, stop.cell, path, stop.time, a.speed, a.costs);
-  const route = concat(head && head.times.length > 1 ? head : null, tail);
-  if (!a.route) {
-    a.x = route.cells[0];
-    a.y = route.cells[1];
-  }
-  a.route = route;
+  a.route = plan.route;
 }
 
 export function stopIntent(w: World, actorId: string): void {
@@ -536,6 +546,7 @@ function toView(w: World, a: ActorState, self: boolean, seen: boolean): ActorVie
     seen,
     vision: self ? visionAt(w, a, positionAt(a, w.t)) : null,
     explored: self ? a.explored : null,
+    move: self ? { speed: a.speed, costs: a.costs } : null,
     x: seen ? a.x : -1,
     y: seen ? a.y : -1,
     route: seen && a.route ? (self ? a.route : routeGlimpse(a.route, w.t)) : null,

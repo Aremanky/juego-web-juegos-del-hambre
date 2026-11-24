@@ -23,4 +23,4 @@ export * from './schemas/api.js';
 export * from './schemas/lobby.js';
 export * from './schemas/match.js';
 
-export const APP_VERSION = '0.6.2';
+export const APP_VERSION = '0.6.3';

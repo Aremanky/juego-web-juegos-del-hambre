@@ -1,18 +1,28 @@
 import { useEffect, useRef } from 'react';
-import { T, routePosition } from '@ceniza/engine';
+import { T, routePosition, type GameMap } from '@ceniza/engine';
 import { appearanceOf, dayPhase, type ActorView, type Appearance, type PoiDTO } from '@ceniza/shared';
 import { gameNow, presentationProgress, useMatch } from '../../stores/match';
+import { FogLayer } from './art/fog';
 import { drawObelisk, drawObeliskGlow } from './art/obelisk';
+import { drawLastSeen, drawPreviewLabel, drawRoutePreview } from './art/overlays';
 import { BUBBLE_MS, SpeechLayer, type SpeechItem } from './art/speech';
 import { TILE, TerrainArt, type MapMode } from './art/terrain';
 import { TerrainView, loadAtlas } from './art/view';
-import { drawFigure, type Facing } from './figure';
+import { snapScale } from './camera';
+import { facingOf } from './facing';
+import type { Facing, Pose } from './figure';
+import { pickActor, type HitBox } from './pick';
+import { formatEta, previewFor, tapPreview, type Preview, type TapState } from './plan';
+import { Resolution } from './resolution';
+import { FigureSprites } from './sprites';
 
 /**
  * Mapa de la arena en canvas 2D: terreno pintado por bloques a la resolución del zoom (o en modo holograma), personajes
  * animados interpolados a 60 fps desde sus rutas, puntos de interés con nombre al descubrirlos, ciclo de
- * día y noche, niebla de guerra, arrastrar para mover la vista, rueda o pellizco para el zoom y un toque
- * para ir. En el mapa nunca va la foto: va el personaje (GDD §5.9).
+ * día y noche, niebla de guerra, arrastrar para mover la vista y rueda o pellizco para el zoom. Moverse
+ * (GDD §7.5): con ratón, al pasar por una casilla se ven la ruta y el tiempo, y un clic va; con el dedo, el
+ * primer toque los enseña y el segundo (o el botón «Ir» de la página) va. Tocar a un personaje o la marca
+ * donde lo viste por última vez abre su tarjeta. En el mapa nunca va la foto: va el personaje (GDD §5.9).
  */
 const SECTOR_LETTERS = 'ABCDEFGHIJKL';
 
@@ -55,11 +65,37 @@ export interface MapApi {
   centerOnMe(): void;
   /** Cambia entre el mapa ilustrado y el holograma; devuelve el modo nuevo. */
   toggleMode(): 'carta' | 'holograma';
+  /** Quita la vista previa táctil (al pulsar «Ir» o cerrarla). */
+  clearPreview(): void;
+  /** Dónde está ahora en pantalla (px del mapa) un personaje o su marca, si se ve. */
+  anchorOf(id: string): { x: number; y: number } | null;
 }
 
-export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) => void; apiRef?: React.MutableRefObject<MapApi | null> }) {
+export function MapCanvas({
+  onCell,
+  onActor,
+  onPreview,
+  modal = false,
+  apiRef,
+}: {
+  /** Ir a una casilla. */
+  onCell: (x: number, y: number) => void;
+  /** Tocar a un personaje o su marca abre su tarjeta; `null` la cierra. */
+  onActor?: (id: string | null) => void;
+  /** Vista previa táctil, la del botón «Ir» (`null` cuando no hay). */
+  onPreview?: (p: Preview | null) => void;
+  /** Hay una tarjeta abierta: el siguiente toque fuera de un personaje solo la cierra. */
+  modal?: boolean;
+  apiRef?: React.MutableRefObject<MapApi | null>;
+}) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const onActorRef = useRef(onActor);
+  onActorRef.current = onActor;
+  const onPreviewRef = useRef(onPreview);
+  onPreviewRef.current = onPreview;
+  const modalRef = useRef(modal);
+  modalRef.current = modal;
   const size = useMatch((s) => s.size);
   const tiles = useMatch((s) => s.tiles);
   const heights = useMatch((s) => s.heights);
@@ -84,6 +120,10 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
     let mode: MapMode = 'carta';
     const view = { scale: 1, ox: 0, oy: 0, w: 0, h: 0, dpr: 1, fitted: false };
     const speech = new SpeechLayer();
+    const fog = new FogLayer();
+    const sprites = new FigureSprites();
+    const res = new Resolution(window.devicePixelRatio || 1);
+    let zoomedAt = 0;
     let raf = 0;
     const looks = new Map<string, Appearance>();
     const facings = new Map<string, Facing>();
@@ -94,6 +134,18 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
     };
 
     const posOf = (a: ActorView, t: number) => (a.route ? routePosition(a.route, t) : { x: a.x, y: a.y });
+    // Para prever rutas con la misma cuenta que el servidor; solo hace falta el terreno.
+    const grid: GameMap = { size, tiles, heights, center: init.center, pois: [], rivers: [], roads: [] };
+    /** Cajas de toque del último fotograma (personajes y marcas), en orden de dibujo. */
+    let hits: HitBox[] = [];
+    /** Casilla bajo el ratón y vista previa táctil; `preview` es la que se dibuja. */
+    let hover: { x: number; y: number } | null = null;
+    let tap: TapState = null;
+    let preview: Preview | null = null;
+    let previewKey = '';
+    let previewAt = 0;
+    let sentKey = '';
+    let cursor = '';
 
     const centerOn = (cx: number, cy: number) => {
       view.ox = view.w / 2 - (cx + 0.5) * TILE * view.scale;
@@ -107,10 +159,12 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
     };
 
     const clampScale = (s: number) => Math.max(Math.min(view.w, view.h) / (size * TILE) * 0.9, Math.min(6, s));
+    /** La escala más cercana con un número entero de píxeles reales por casilla (dentro de los límites). */
+    const snap = (s: number) => snapScale(s, view.dpr, clampScale(0), clampScale(Infinity));
 
     const resize = () => {
       const r = box.getBoundingClientRect();
-      view.dpr = Math.min(2, window.devicePixelRatio || 1);
+      view.dpr = Math.min(res.dpr, window.devicePixelRatio || 1);
       view.w = r.width;
       view.h = r.height;
       el.width = Math.round(r.width * view.dpr);
@@ -118,7 +172,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       el.style.width = `${r.width}px`;
       el.style.height = `${r.height}px`;
       if (!view.fitted && r.width > 0) {
-        view.scale = clampScale(Math.min(r.width, r.height) / (30 * TILE));
+        view.scale = snap(clampScale(Math.min(r.width, r.height) / (30 * TILE)));
         const p = myPos();
         centerOn(p.x, p.y);
         view.fitted = true;
@@ -129,6 +183,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
     resize();
 
     const zoomAt = (f: number, sx: number, sy: number) => {
+      zoomedAt = performance.now();
       const next = clampScale(view.scale * f);
       const k = next / view.scale;
       view.ox = sx - (sx - view.ox) * k;
@@ -143,7 +198,17 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
     let flying = false;
     const ease = (x: number) => (x < 0.5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2);
     const startAngle = ((seed.length ? seed.charCodeAt(seed.length - 1) : 3) % 8) * (Math.PI / 4);
-    const playScale = () => clampScale(Math.min(view.w, view.h) / (30 * TILE));
+    const playScale = () => snap(clampScale(Math.min(view.w, view.h) / (30 * TILE)));
+    // En reposo, el zoom queda en un número entero de píxeles reales por casilla (alrededor del centro de la
+    // vista): así el terreno se copia sin escalar, que sin GPU era lo que más costaba de cada fotograma.
+    const settle = () => {
+      const next = snap(view.scale);
+      if (next === view.scale) return;
+      const k = next / view.scale;
+      view.ox = view.w / 2 - (view.w / 2 - view.ox) * k;
+      view.oy = view.h / 2 - (view.h / 2 - view.oy) * k;
+      view.scale = next;
+    };
     const overviewScale = () => clampScale(0);
     const fly = (u: number) => {
       const c = useMatch.getState().center;
@@ -192,6 +257,13 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
           mode = mode === 'carta' ? 'holograma' : 'carta';
           return mode;
         },
+        clearPreview: () => {
+          tap = null;
+        },
+        anchorOf: (id) => {
+          const b = hits.find((h) => h.id === id);
+          return b ? { x: b.x, y: b.top } : null;
+        },
       };
     }
 
@@ -213,9 +285,23 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         pinch = Math.hypot(a.x - b.x, a.y - b.y);
       }
     };
+    const cellAt = (px: number, py: number) => {
+      const x = Math.floor((px - view.ox) / (TILE * view.scale));
+      const y = Math.floor((py - view.oy) / (TILE * view.scale));
+      return x >= 0 && y >= 0 && x < size && y < size ? { x, y } : null;
+    };
     const move = (e: PointerEvent) => {
       const prev = pointers.get(e.pointerId);
-      if (!prev) return;
+      if (!prev) {
+        // Ratón sin pulsar: vista previa de la casilla y mano sobre los personajes y sus marcas.
+        if (e.pointerType === 'mouse') {
+          const p = local(e);
+          hover = cellAt(p.x, p.y);
+          const want = pickActor(hits, p.x, p.y, 4) ? 'pointer' : '';
+          if (want !== cursor) el.style.cursor = cursor = want;
+        }
+        return;
+      }
       const p = local(e);
       pointers.set(e.pointerId, p);
       if (pointers.size === 2) {
@@ -234,10 +320,36 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       const p = pointers.get(e.pointerId);
       pointers.delete(e.pointerId);
       if (pointers.size < 2) pinch = 0;
+      // Arrastrar o pellizcar no es un toque.
       if (!p || moved > 6 || pointers.size > 0) return;
-      const x = Math.floor((p.x - view.ox) / (TILE * view.scale));
-      const y = Math.floor((p.y - view.oy) / (TILE * view.scale));
-      if (x >= 0 && y >= 0 && x < size && y < size) onCellRef.current(x, y);
+      const mouse = e.pointerType === 'mouse';
+      const who = pickActor(hits, p.x, p.y, mouse ? 4 : 12);
+      if (who) {
+        tap = null;
+        onActorRef.current?.(who);
+        return;
+      }
+      // Con una tarjeta abierta, tocar fuera solo la cierra.
+      if (modalRef.current) {
+        onActorRef.current?.(null);
+        return;
+      }
+      const c = cellAt(p.x, p.y);
+      if (!c) return;
+      if (mouse) {
+        onCellRef.current(c.x, c.y);
+        return;
+      }
+      const r = tapPreview(tap, { type: 'tap', cell: c, at: Date.now() });
+      tap = r.state;
+      if (r.go) onCellRef.current(r.go.x, r.go.y);
+    };
+    const cancel = (e: PointerEvent) => {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinch = 0;
+    };
+    const leave = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') hover = null;
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -248,13 +360,16 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
     el.addEventListener('pointerdown', down);
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
+    el.addEventListener('pointercancel', cancel);
+    el.addEventListener('pointerleave', leave);
     el.addEventListener('wheel', wheel, { passive: false });
 
     const draw = () => {
       raf = requestAnimationFrame(draw);
       const st = useMatch.getState();
       const now = gameNow();
+      const realNow = Date.now();
+      const frameHits: HitBox[] = [];
       if (st.phase === 'presentacion' && cinematic) {
         flying = true;
         fly(presentationProgress());
@@ -266,6 +381,11 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         const p = myPos();
         centerOn(p.x, p.y);
       }
+      // Si los fotogramas van lentos de forma sostenida, menos densidad (fuera del sobrevuelo, que carga bloques).
+      const tick = performance.now();
+      if (!flying && res.frame(tick)) resize();
+      const steady = !flying && tick - zoomedAt > 250;
+      if (steady) settle();
       const s = view.scale * TILE;
       g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
       g.fillStyle = '#0d1112';
@@ -304,6 +424,30 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       };
 
       const me = st.me ? st.actors[st.me] : null;
+      // Vista previa de la orden de ir: la casilla del primer toque o la que está bajo el ratón. Se recalcula
+      // al cambiar de casilla o de ruta propia, y cada cuarto de segundo para que el tiempo siga al día.
+      if (tap) tap = tapPreview(tap, { type: 'tick', at: realNow }).state;
+      const canAct = !!me?.alive && st.phase === 'en_curso' && !st.paused;
+      const target = canAct ? (tap?.cell ?? hover) : null;
+      if (target && me) {
+        const r = me.route;
+        const key = `${target.x},${target.y}|${me.x},${me.y}|${r ? `${r.times[0]}:${r.times.length}:${r.times[r.times.length - 1]}` : '-'}`;
+        if (key !== previewKey || Math.abs(now - previewAt) > 250) {
+          preview = previewFor(grid, me, target, now);
+          previewKey = key;
+          previewAt = now;
+        }
+      } else {
+        preview = null;
+        previewKey = '';
+      }
+      // La página solo necesita la vista previa táctil (para su botón «Ir»); se le avisa cuando cambia lo que enseña.
+      const shown = tap && preview ? preview : null;
+      const shownKey = shown ? `${shown.x},${shown.y}|${shown.error ?? formatEta(shown.eta!)}` : '';
+      if (shownKey !== sentKey) {
+        sentKey = shownKey;
+        onPreviewRef.current?.(shown);
+      }
       // Puntos de interés que ya conoces (el Obelisco siempre).
       const known = (p: PoiDTO) => p.kind === 'obelisco' || st.phase === 'terminada' || (!!me?.explored && (me.explored & (1 << p.id)) !== 0);
       const iconScale = Math.max(0.8, Math.min(1.8, view.scale * 0.55));
@@ -331,6 +475,9 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         g.lineTo(ex - 5, ey + 5);
         g.stroke();
       }
+      // Ruta prevista: más fina y tenue que la real, con un anillo en el destino.
+      const frame = { ox: view.ox, oy: view.oy, s, w: view.w, h: view.h };
+      if (preview && me) drawRoutePreview(g, preview, posOf(me, now), now, frame, isHolo);
 
       const fig = Math.max(28, Math.min(72, s * 1.85));
       const list = st.order.map((id) => st.actors[id]).filter((a): a is ActorView => !!a && a.seen);
@@ -354,7 +501,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
           const dy = ahead.y - p.y;
           if (Math.abs(dx) + Math.abs(dy) > 0.01) {
             moving = true;
-            facings.set(a.id, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'E' : 'W') : dy > 0 ? 'S' : 'N');
+            facings.set(a.id, facingOf(dx, dy, facings.get(a.id) ?? 'S'));
             running = Math.hypot(dx, dy) / 0.12 > 1.9;
           }
         }
@@ -383,7 +530,9 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
           g.ellipse(x + 1.5, y, fig * 0.2, fig * 0.07, 0, 0, Math.PI * 2);
           g.fill();
         }
-        drawFigure(g, lookOf(a), x, swimming ? y + fig * 0.22 : y, fig, {
+        // Si ha caído delante de ti, la caída dura 700 ms (nada con «reducir movimiento»).
+        const fall = !a.alive && !reduced && st.fellAt[a.id] ? Math.min(1, (realNow - st.fellAt[a.id]) / 700) : undefined;
+        const pose: Pose = {
           facing: facings.get(a.id) ?? 'S',
           t: now + (a.id.charCodeAt(0) % 7) * 137,
           moving,
@@ -392,7 +541,13 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
           crouched,
           dead: !a.alive,
           celebrating: st.phase === 'terminada' && st.winnerId === a.id,
-        });
+          climbing: a.alive && moving && !swimming && (tile === T.MONTANA || tile === T.CUMBRE),
+          fall,
+        };
+        // Cada fotograma de su animación se dibuja una vez y después se copia (sin GPU, dibujar las figuras era lo
+        // que más costaba de cada fotograma).
+        sprites.draw(g, a.id, lookOf(a), x, swimming ? y + fig * 0.22 : y, fig, pose, view.dpr, steady);
+        frameHits.push({ id: a.id, x, top: y - fig * 1.05, bottom: y + 4, half: fig * 0.26 });
         if (a.id === st.me || fig >= 40) plates.push({ a, x, y });
         if (a.alive) heads.set(a.id, { x, y: y - fig * (swimming ? 0.8 : 1.02), r: fig * 0.2 });
       }
@@ -432,12 +587,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         const p = posOf(me, now);
         const x = view.ox + (p.x + 0.5) * s;
         const y = view.oy + (p.y + 0.5) * s;
-        const rr = me.vision * s;
-        const grad = g.createRadialGradient(x, y, rr * 0.85, x, y, rr * 1.05);
-        grad.addColorStop(0, 'rgba(8,10,11,0)');
-        grad.addColorStop(1, 'rgba(8,10,11,0.62)');
-        g.fillStyle = grad;
-        g.fillRect(0, 0, view.w, view.h);
+        fog.draw(g, x, y, me.vision * s, view.w, view.h, view.dpr);
       }
 
       // Rótulos de mapa (texto con halo, sin cajas) por encima de la noche y la niebla.
@@ -464,6 +614,15 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       g.font = '600 11px "Archivo Variable", Archivo, sans-serif';
       for (const { a, x, y } of plates) halo(a.name, x, y + 12, a.id === st.me ? '#ffb07a' : a.alive ? '#f3ece0' : '#8f877b', 'rgba(10,12,13,0.88)');
 
+      // «Visto por última vez» (GDD §7.4) y el tiempo hasta el destino previsto, como rótulos.
+      for (const [id, seen] of Object.entries(st.lastSeen)) {
+        const a = st.actors[id];
+        if (!a || !a.alive || a.seen) continue;
+        const box = drawLastSeen(g, a, seen, now, frame, fig, isHolo);
+        if (box) frameHits.push(box);
+      }
+      if (preview) drawPreviewLabel(g, preview, frame, isHolo);
+
       // Lo que dicen los bots, por encima de todo (también de la noche y la niebla). Lo más reciente, delante.
       const real = Date.now();
       const said: SpeechItem[] = [];
@@ -473,6 +632,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       }
       const faces = said.length ? [...heads].map(([id, h]) => ({ id, ...h })) : [];
       speech.draw(g, said, { holo: isHolo, reduced, bounds: view, heads: faces, now: real });
+      hits = frameHits;
     };
     raf = requestAnimationFrame(draw);
 
@@ -483,7 +643,8 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       el.removeEventListener('pointerdown', down);
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
-      el.removeEventListener('pointercancel', up);
+      el.removeEventListener('pointercancel', cancel);
+      el.removeEventListener('pointerleave', leave);
       el.removeEventListener('wheel', wheel);
       if (apiRef) apiRef.current = null;
     };
@@ -491,7 +652,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
 
   return (
     <div ref={wrap} className="map-wrap">
-      <canvas ref={canvas} className="map-canvas" aria-label="Mapa de la arena. Toca una casilla para ir allí." role="img" />
+      <canvas ref={canvas} className="map-canvas" aria-label="Mapa de la arena. Toca una casilla para ver la ruta y el tiempo, y vuelve a tocarla para ir. Toca a un participante para ver su tarjeta." role="img" />
     </div>
   );
 }

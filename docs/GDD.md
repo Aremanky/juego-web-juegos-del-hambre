@@ -341,6 +341,12 @@ combate, resultados y perfil. También sirve para crear el personaje a su imagen
   capa, peto, vestido, mono), color de ropa y de ribete, pantalón, complemento (bufanda, mochila, carcaj o
   cinta), complexión y estatura, con vista previa animada. Lo que no se toca sale del retrato; «Como su
   retrato» lo devuelve a eso. El camafeo toma el peinado, los colores y el complemento.
+- *Hecho en la 0.6.3:* ocho rumbos según hacia dónde va: frente, espalda, lado y las dos vistas de 3/4 (de
+  frente y de espaldas, con la cara, el pelo y los complementos girados), y las otras tres en espejo. Trepar
+  en montaña y cumbre (zancada corta y brazos que se alternan hacia arriba). Al caer delante de ti, la caída
+  se ve en 700 ms: las rodillas ceden y queda tumbado y en gris (sin animación con «reducir movimiento»). La
+  pestaña Apariencia da la vuelta por los ocho rumbos. Las animaciones van a pasos (12 por zancada y 16 por
+  respiración) para que cada fotograma se dibuje una vez y después se copie.
 
 **Sistema de personalización (amplio).** La apariencia se guarda como un JSON compacto y versionado
 (piezas + parámetros). El servidor la valida y la usan igual personajes y bots: a un bot se le genera una
@@ -470,6 +476,10 @@ cuevas nuevas), cajas de suministro y reabastecimiento del Obelisco. El mapa no 
 - **Regla de oro para bots:** su percepción es **exactamente** la vista filtrada que recibiría un humano en
   su asiento con ese modo (misma función `computeView`), más su memoria. Nunca información privilegiada.
 
+*Hecho en la 0.6.3:* cuando alguien sale de tu vista (niebla, distancia o noche), en el sitio donde lo viste
+queda una marca: un anillo discontinuo de su color con su nombre y «hace …». Se apaga en dos minutos y
+desaparece al volver a verlo o si cae. Es memoria de tu cliente: el servidor no manda nada que no vieras.
+
 ### 7.5 Interacción
 
 Zoom y arrastre (rueda, pellizco), tocar a un personaje → tarjeta (foto, nombre, humano/bot, estado, salud
@@ -485,6 +495,19 @@ caminos curvos, explanada empedrada, árboles y montañas repartidos sin rejilla
 cuevas y braseros, todo con la misma luz y sus sombras, nítido a cualquier zoom. De noche se encienden las
 ventanas, los braseros y la brasa del Obelisco. Los objetos pueden usar sprites pintados (SpriteCook) cuando
 están en `public/map/`.
+
+*En la 0.6.3:*
+- **Tarjeta del participante:** se abre al tocar a alguien en el mapa o su fila en «Participantes». Lleva su
+  retrato, nombre y epíteto, el distrito, si es humano o bot (con su carácter y dificultad), el estado si
+  dice algo (sin conexión, piloto automático, caído, ha ganado), dónde está para ti («A 12 casillas · ≈ 25 s»
+  o «Fuera de tu vista desde hace 1 min 20 s») e «Ir hacia aquí». En escritorio sale junto al personaje; en
+  el móvil, como hoja abajo. Se cierra con su botón, con Esc o tocando el mapa.
+- **Ruta y tiempo antes de moverte:** con ratón, al pasar por encima de una casilla se ven la ruta y el
+  tiempo, y el clic va. Con el dedo, el primer toque los enseña y el segundo en la misma casilla (o el botón
+  «Ir · ≈ tiempo») va; caduca a los 8 s. Si está demasiado lejos para una orden, se dice ahí mismo. Es el
+  mismo cálculo que hace el servidor al recibir la orden.
+- La salud visible y las alianzas en la tarjeta llegan con la fase 8; las capas de peligros, recursos y
+  eventos, con las fases 8 y 9.
 
 ---
 
@@ -823,4 +846,4 @@ documentará la licencia de cada modelo (uso privado no comercial).
 | Leaflet / mapas tipo app | Aspecto de app de mapas; PixiJS (WebGL) da sensación de juego, efectos y 60 fps en móvil |
 | Phaser | Demasiado framework para un mapa + UI React; PixiJS basta |
 | Repartir los bots entre las GPU de los clientes, con rescates (0.6.2) | La IA cuesta 0,8 ms por tick de 100 en el servidor y no es trabajo de GPU; en los clientes añadiría red, fallos y validación sin mejorar el juego. Se retoma con el criterio de §13 |
-| PixiJS en la fase 7 (aplazado) | El mapa ilustrado se hornea una vez y por fotograma solo se dibujan una imagen, los personajes y los rótulos: 55 fps en el Chrome sin GPU de las pruebas. Se cambiará el renderizador si en móviles reales hiciera falta, sin tocar motor ni protocolo |
+| PixiJS (medido y decidido en la 0.6.3) | Criterio: si con la CPU 4 veces más lenta, en Chrome sin GPU, el mapa no llega a 30 fotogramas por segundo, se abarata, y PixiJS solo si aun así no llega. Escena: 24 personajes moviéndose con 8 caídos a la vista, noche, niebla, rótulos y bocadillos, 10 s por caso. Al empezar, con la CPU normal: 0,9 fps en el móvil y 2,6 en escritorio (el filtro gris de los caídos). Abaratado (gris sin filtro, terreno copiado sin escalar con el zoom en reposo en píxeles enteros por casilla, niebla en recorte, figuras guardadas como imagen por fotograma y densidad que baja sola de 2 a 1,5 y a 1 si los fotogramas van lentos): móvil 390×844, 60 fps con la CPU normal y 45–50 con ×4; escritorio 1280×720, 60 y unos 34 (de 29 a 39 según la tanda). Se queda el lienzo 2D: sin GPU, PixiJS dibujaría con WebGL por software, y con GPU el lienzo de Chrome ya va acelerado. Si un móvil real no llegara a 30 con la densidad mínima, se vuelve a medir antes de cambiar de motor |

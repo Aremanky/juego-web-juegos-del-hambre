@@ -13,15 +13,41 @@
 .explored p { margin: 0; }
 .map-tools { position: absolute; right: 0.75rem; bottom: 0.75rem; display: flex; flex-direction: column; align-items: stretch; gap: 0.35rem; }
 .map-tools .btn { background: rgba(10, 12, 13, 0.85); min-width: 36px; font-size: var(--fs-1); }
-.map-hint { position: absolute; left: 0.75rem; right: 6.5rem; width: fit-content; bottom: 0.75rem; margin: 0; padding: 0.3rem 0.6rem; font-size: var(--fs-0); color: var(--ceniza); background: rgba(10, 12, 13, 0.78); pointer-events: none; }
+.map-hint { position: absolute; left: 0.75rem; right: 6.5rem; width: fit-content; bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); margin: 0; padding: 0.3rem 0.6rem; font-size: var(--fs-0); color: var(--ceniza); background: rgba(10, 12, 13, 0.88); pointer-events: none; }
+/* Tarjeta del participante: junto a su personaje en escritorio, hoja inferior en el móvil. Sin bloquear el mapa. */
+/* Opaca: sobre el terreno claro el texto tenue bajaba de 4,5:1 (4,05 sobre arena clara) y, en el móvil,
+   los botones del mapa se transparentaban a través de la hoja. */
+.pcard { position: absolute; z-index: 5; width: min(320px, calc(100% - 1.5rem)); padding: 0.85rem 0.9rem 0.95rem; display: grid; gap: 0.45rem; background: rgb(19, 27, 28); box-shadow: 2px 3px 10px rgba(10, 8, 5, 0.5); animation: fade-in 0.15s ease-out; }
+.pcard-head { display: flex; gap: 0.7rem; align-items: flex-start; }
+.pcard-id { flex: 1; min-width: 0; }
+.pcard-id p { margin: 0.15rem 0 0; }
+.pcard-name { margin: 0; font-size: var(--fs-3); line-height: 1.15; overflow-wrap: anywhere; }
+.pcard-epithet { color: var(--oro-2); font-size: var(--fs-1); }
+.pcard-status { margin: 0.1rem 0 0; color: var(--hueso); }
+.pcard-where { margin: 0; color: var(--ceniza); }
+.pcard-go { justify-self: start; min-height: 44px; margin-top: 0.2rem; }
+.pcard-sheet { left: 0.5rem; right: 0.5rem; bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px)); width: auto; }
+/* Cerrar, de 44 px con el dedo: en la hoja y también en tabletas, donde la tarjeta flota junto al personaje. */
+.pcard-sheet .pcard-head .btn-icon { width: 44px; min-height: 44px; }
+@media (pointer: coarse) { .pcard-head .btn-icon { width: 44px; min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .pcard { animation: none; } }
+/* Ruta prevista con el dedo: «Ir» con el tiempo, o el motivo si no se puede. Sombra al sureste, como el mapa. */
+.go-bar { position: absolute; left: 0.75rem; bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); max-width: calc(100% - 9rem); display: flex; align-items: center; gap: 0.4rem; padding: 0.35rem; background: rgba(10, 12, 13, 0.88); border: 1px solid var(--line-soft); box-shadow: 2px 3px 8px rgba(10, 8, 5, 0.45); }
+.go-btn { min-height: 44px; padding-inline: 1rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.go-close { min-width: 44px; min-height: 44px; padding: 0; display: inline-grid; place-items: center; }
+.go-error { margin: 0; padding: 0 0.5rem; max-width: 32ch; font-size: var(--fs-1); color: var(--oro-2); }
 .match-side { display: grid; gap: 1rem; align-content: start; min-width: 0; }
 .match-side h2 { margin-bottom: 0.6rem; }
 .me-head { display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; }
 .me-name { font-size: var(--fs-3); }
 .row-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .roster { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
-.roster-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.6rem; align-items: center; padding: 0.3rem 0.4rem; border: 1px solid transparent; }
+.roster-row { border: 1px solid transparent; }
 .roster-row.mine { border-color: var(--line); }
+/* Cada fila es un botón que abre la tarjeta del participante. Con caja propia: con display: contents
+   el tabulador se saltaba los botones y el teclado no tenía forma de abrir la tarjeta. */
+.roster-btn { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.6rem; align-items: center; width: 100%; margin: 0; padding: 0.3rem 0.4rem; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.roster-btn:hover { background: rgba(239, 231, 218, 0.05); }
 .roster-row.out { opacity: 0.6; }
 .roster-text { display: grid; line-height: 1.25; min-width: 0; }
 .roster-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

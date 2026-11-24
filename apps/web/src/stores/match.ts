@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import type { ActorView, DayCycleDTO, MatchEventDTO, MatchFrame, MatchSnapshot, PoiDTO } from '@ceniza/shared';
-import { decodeTiles, heightsFromTiles } from '@ceniza/engine';
+import { decodeTiles, heightsFromTiles, routePosition } from '@ceniza/engine';
 import { getSocket } from '../lib/socket';
+import { trackFalls, trackSight, type LastSeen } from './sight';
 import { toast } from './toast';
 
 /**
@@ -33,6 +34,10 @@ interface MatchStore {
   log: MatchEventDTO[];
   /** Lo último que ha dicho cada bot y cuándo llegó (hora local), para su bocadillo en el mapa. */
   speech: Record<string, { text: string; at: number }>;
+  /** Dónde y cuándo viste por última vez a quien ya no ves (solo lo que viste; se pierde al recargar). */
+  lastSeen: Record<string, LastSeen>;
+  /** Hora local a la que cayó cada uno delante de ti, para animar la caída. */
+  fellAt: Record<string, number>;
   applySnapshot(snap: MatchSnapshot): void;
   reset(): void;
   wire(): void;
@@ -65,7 +70,20 @@ const empty = {
   clock: { t: 0, at: 0, running: false },
   log: [],
   speech: {},
+  lastSeen: {},
+  fellAt: {},
 };
+
+/** Posición (con decimales) de un participante en el instante t de la partida. */
+const posAt = (a: ActorView, t: number) => (a.route ? routePosition(a.route, t) : { x: a.x, y: a.y });
+
+/** Marcas de «visto por última vez» y caídas tras un cambio de vista; `t` es la hora de partida del cambio. */
+function sightAfter(prev: Pick<MatchStore, 'lastSeen' | 'fellAt' | 'actors'>, actors: Record<string, ActorView>, t: number) {
+  return {
+    lastSeen: trackSight(prev.lastSeen, prev.actors, actors, t, (a) => posAt(a, t)),
+    fellAt: trackFalls(prev.fellAt, prev.actors, actors, Date.now()),
+  };
+}
 
 export const useMatch = create<MatchStore>((set, get) => ({
   ...empty,
@@ -73,6 +91,8 @@ export const useMatch = create<MatchStore>((set, get) => ({
   applySnapshot(snap) {
       skew = snap.clock.now - Date.now();
       const same = get().matchId === snap.matchId;
+      const actors = Object.fromEntries(snap.actors.map((a) => [a.id, a]));
+      const sight = same ? sightAfter(get(), actors, snap.clock.t) : { lastSeen: {}, fellAt: {} };
       set({
         matchId: snap.matchId,
         seed: snap.seed,
@@ -92,11 +112,12 @@ export const useMatch = create<MatchStore>((set, get) => ({
         vote: snap.vote,
         winnerId: snap.winnerId,
         me: snap.me,
-        actors: Object.fromEntries(snap.actors.map((a) => [a.id, a])),
+        actors,
         order: snap.actors.map((a) => a.id),
         clock: { t: snap.clock.t, at: snap.clock.now, running: snap.clock.running },
         log: same ? get().log : [],
         speech: same ? get().speech : {},
+        ...sight,
       });
   },
   wire() {
@@ -109,7 +130,9 @@ export const useMatch = create<MatchStore>((set, get) => ({
       // Suavizado: el desfase solo se corrige poco a poco para no dar tirones.
       skew = skew * 0.8 + (f.clock.now - Date.now()) * 0.2;
       const actors = f.actors.length ? { ...get().actors, ...Object.fromEntries(f.actors.map((a) => [a.id, a])) } : get().actors;
+      const sight = f.actors.length ? sightAfter(get(), actors, f.clock.t) : {};
       set({
+        ...sight,
         phase: f.phase,
         phaseEndsAt: f.phaseEndsAt,
         paused: f.paused,

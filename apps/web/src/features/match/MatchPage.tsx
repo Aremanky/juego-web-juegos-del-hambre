@@ -1,11 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 import { Link } from 'react-router';
+import { routePosition, type GameMap } from '@ceniza/engine';
 import { dayPhase, districtById, type ActorView, type LobbyState, type MatchSnapshot } from '@ceniza/shared';
 import { ConfirmButton, Portrait } from '../../components/ui';
 import { emitAck } from '../../lib/socket';
 import { gameNow, presentationProgress, serverNow, useMatch } from '../../stores/match';
 import { act } from '../lobby/LobbyParts';
+import { statusText } from './card';
 import { MapCanvas, type MapApi } from './MapCanvas';
+import { ParticipantCard } from './ParticipantCard';
+import { formatEta, previewFor, type Preview } from './plan';
 
 /** Repinta cada `ms` para las cuentas atrás. */
 function useTicker(ms = 250) {
@@ -18,19 +23,27 @@ function useTicker(ms = 250) {
 
 const frameOf = (a: ActorView) => (a.frame as Parameters<typeof Portrait>[0]['frame']) ?? 'sencillo';
 
-function statusText(a: ActorView, me: string | null): string {
-  if (!a.alive) return a.cause === 'desconexion' ? `Fuera por desconexión · puesto ${a.place}` : `Ha abandonado · puesto ${a.place}`;
-  if (a.place === 1) return 'Ganador';
-  if (!a.connected) return a.control === 'piloto' ? 'Sin conexión · piloto automático' : 'Sin conexión · a cubierto';
-  if (a.id === me) return 'Tú';
-  return a.kind === 'bot' ? 'Bot' : 'En la arena';
-}
-
 export function MatchPage({ lobby }: { lobby: LobbyState }) {
   const m = useMatch();
   const mapApi = useRef<MapApi | null>(null);
   const [showResults, setShowResults] = useState(true);
   const [holo, setHolo] = useState(false);
+  /** Vista previa táctil de la orden de ir (la del botón «Ir»). */
+  const [preview, setPreview] = useState<Preview | null>(null);
+  /** Participante cuya tarjeta está abierta y junto a qué punto del mapa se abrió. */
+  const [cardId, setCardId] = useState<string | null>(null);
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  const openCard = (id: string | null) => {
+    setCardId(id);
+    setAnchor(id ? (mapApi.current?.anchorOf(id) ?? null) : null);
+  };
+  // Para la distancia y el tiempo de la tarjeta, la misma cuenta que la vista previa (solo hace falta el terreno).
+  const grid = useMemo<GameMap | null>(
+    () => (m.tiles && m.heights ? { size: m.size, tiles: m.tiles, heights: m.heights, center: m.center, pois: [], rivers: [], roads: [] } : null),
+    [m.tiles, m.heights, m.size, m.center],
+  );
+  // Con ratón la ruta se ve al pasar por encima; con el dedo, al primer toque.
+  const mouse = useMemo(() => typeof window.matchMedia === 'function' && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   useTicker(250);
 
   // Si la instantánea llegó antes de montar la pantalla, se pide otra.
@@ -65,10 +78,45 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
     void act('match:move', { x, y });
   };
 
+  // Tarjeta abierta: dónde está para ti (si lo ves, con tu ruta; si no, dónde lo viste) y si puedes ir.
+  let card: ReactNode = null;
+  const cardActor = cardId ? (m.actors[cardId] ?? null) : null;
+  if (cardActor) {
+    const now = gameNow();
+    const lastSeen = m.lastSeen[cardActor.id];
+    const live = cardActor.alive && cardActor.seen;
+    const pos = live ? (cardActor.route ? routePosition(cardActor.route, now) : { x: cardActor.x, y: cardActor.y }) : (lastSeen ?? null);
+    const cell = pos ? { x: Math.round(pos.x), y: Math.round(pos.y) } : null;
+    const p = grid && cell && live && cardActor.id !== m.me ? previewFor(grid, me, cell, now) : null;
+    const trip = p && p.error === null ? { cells: p.cells, eta: p.eta } : null;
+    const go = canAct && cardActor.alive && cardActor.id !== m.me && cell ? cell : null;
+    card = (
+      <ParticipantCard
+        key={cardActor.id}
+        actor={cardActor}
+        me={m.me}
+        lastSeen={lastSeen}
+        now={now}
+        bot={lobby.participants.find((x) => x.id === cardActor.id)?.bot ?? null}
+        trip={trip}
+        anchor={anchor}
+        onClose={() => openCard(null)}
+        onGo={
+          go
+            ? () => {
+                goTo(go.x, go.y);
+                openCard(null);
+              }
+            : null
+        }
+      />
+    );
+  }
+
   return (
     <main className="match">
       <div className="match-stage">
-        <MapCanvas onCell={goTo} apiRef={mapApi} />
+        <MapCanvas onCell={goTo} onActor={openCard} onPreview={setPreview} modal={!!cardId} apiRef={mapApi} />
         <div className="match-top">
           <h1 className="match-title">{lobby.room.name}</h1>
           <div className="match-status">
@@ -92,7 +140,35 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
             {holo ? 'Mapa' : 'Holograma'}
           </button>
         </div>
-        {canAct && <p className="map-hint">Toca una casilla para ir. Arrastra para mover la vista.</p>}
+        {canAct && !preview && (
+          <p className="map-hint">
+            {mouse
+              ? 'Pasa el ratón para ver la ruta y el tiempo. Haz clic para ir, o en alguien para ver su tarjeta.'
+              : 'Toca una casilla para ver la ruta y vuelve a tocarla para ir. Toca a alguien para ver su tarjeta.'}
+          </p>
+        )}
+        {canAct && preview && (
+          <div className="go-bar" role="group" aria-label="Ruta prevista">
+            {preview.error !== null ? (
+              <p className="go-error">{preview.error}</p>
+            ) : (
+              <button
+                className="btn btn-gold go-btn"
+                onClick={() => {
+                  goTo(preview.x, preview.y);
+                  mapApi.current?.clearPreview();
+                }}
+              >
+                Ir · {formatEta(preview.eta)}
+              </button>
+            )}
+            <button className="btn go-close" aria-label="Quitar la ruta prevista" onClick={() => mapApi.current?.clearPreview()}>
+              <X size={18} aria-hidden />
+            </button>
+          </div>
+        )}
+
+        {card}
 
         {m.phase === 'presentacion' && <Presentation actors={actors} mapSize={m.size} />}
         {m.phase === 'cuenta_atras' && m.phaseEndsAt != null && !m.paused && <Countdown endsAt={m.phaseEndsAt} />}
@@ -168,12 +244,14 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
               .sort((a, b) => Number(b.alive) - Number(a.alive) || (a.place ?? 99) - (b.place ?? 99) || a.district - b.district)
               .map((a) => (
                 <li key={a.id} className={`roster-row${a.alive ? '' : ' out'}${a.id === m.me ? ' mine' : ''}`}>
-                  <Portrait portrait={a.portrait} look={a.look} color={a.color} frame="sencillo" size={34} bot={a.kind === 'bot'} grayscale={!a.alive} />
-                  <div className="roster-text">
-                    <strong>{a.name}</strong>
-                    <span className="small faint">{statusText(a, m.me)}</span>
-                  </div>
-                  <span className="display small faint">{districtById(a.district)?.roman}</span>
+                  <button type="button" className="roster-btn" onClick={() => openCard(a.id)} aria-haspopup="dialog">
+                    <Portrait portrait={a.portrait} look={a.look} color={a.color} frame="sencillo" size={34} bot={a.kind === 'bot'} grayscale={!a.alive} />
+                    <span className="roster-text">
+                      <strong>{a.name}</strong>
+                      <span className="small faint">{statusText(a, m.me)}</span>
+                    </span>
+                    <span className="display small faint">{districtById(a.district)?.roman}</span>
+                  </button>
                 </li>
               ))}
           </ul>

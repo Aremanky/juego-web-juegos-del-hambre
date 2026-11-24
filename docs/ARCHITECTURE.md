@@ -3,8 +3,9 @@
 > Fases 2–7 · Estado: implementada y probada para usuarios, fotos, personajes, salas, lobby, el motor de partida
 > en tiempo real, la capa de reglas de la fase 5, la IA de los bots (fase 6, con frases y estilos de juego
 > desde la 0.6.2) y la arena completa (fase 7:
-> generador con ríos, caminos y puntos de interés, exploración, día y noche, mapa ilustrado y personajes
-> animados). Inventario, combate en partida, alianzas y eventos se añaden en las fases 8–10.
+> generador con ríos, caminos y puntos de interés, exploración, día y noche, mapa ilustrado, personajes
+> animados en ocho rumbos, tarjeta del participante, ruta prevista y «visto por última vez», cerrada en la
+> 0.6.3). Inventario, combate en partida, alianzas y eventos se añaden en las fases 8–10.
 
 ## Visión general
 
@@ -326,9 +327,10 @@ los bots siguen con su memoria.
     ruinas, cuevas, manantiales y braseros en la explanada). Misma luz para todo: del noroeste, sombra al
     sureste, en una capa aparte para que dos sombras no se sumen. Si hay hoja de sprites
     (`public/map/atlas.json`, ver `scripts/slice-sheets.py`) se dibujan con ella; si no, en vectorial.
-  - `view.ts`: bloques de 16×16 casillas a 16, 32 o 48 px por casilla según el zoom y la densidad de la
-    pantalla, en una caché con límite de memoria; los que faltan se pintan con otro nivel o la vista general
-    y se generan del centro hacia fuera dentro de un presupuesto por fotograma.
+  - `view.ts`: bloques de 16×16 casillas en una caché con límite de memoria. Con el zoom en reposo (un número
+    entero de píxeles reales por casilla, ver `camera.ts`) se hacen a ese tamaño y se copian sin escalar;
+    mientras se cambia el zoom, a 16, 32 o 48 px por casilla. Los que faltan se pintan con otro nivel o la
+    vista general y se generan del centro hacia fuera dentro de un presupuesto por fotograma.
   - `obelisk.ts`: el Obelisco se dibuja en cada fotograma (zócalo, fuste y brasa con pavesas) y ordenado con
     los personajes; de noche se encienden su brasa, los braseros y las ventanas de las casas.
   - Rótulos de mapa con halo (sin cajas). En el holograma: curvas de nivel suaves, orillas, ríos, caminos y
@@ -338,6 +340,24 @@ los bots siguen con su memoria.
   contorno fino; 9 peinados, 6 prendas, 4 complementos, complexión y estatura. La apariencia elegida en el
   editor (`look` del personaje, validado con `LookSchema`) viaja en la vista de cada participante; lo que no
   se elige se deriva del retrato. El camafeo toma el peinado, los colores y el complemento elegidos.
-- Rendimiento: con el mapa nuevo, 41 fps en el Chrome sin GPU de las pruebas (55 con el anterior, que no
-  filtraba al ampliar); en navegadores con GPU el escalado de los bloques no cuesta.
+  - Rumbo (`facing.ts`): ocho octantes a partir de la ruta; cinco vistas dibujadas (frente, 3/4 de frente,
+    lado, 3/4 de espaldas, espalda) y tres en espejo. Trepar en montaña y cumbre; caída de 700 ms con la
+    hora del servidor en que cayó (`stores/sight.ts`); los caídos en gris cambiando cada color, sin `filter`.
+  - `sprites.ts`: cada fotograma de la animación (24 pasos por ciclo al moverse, 16 por respiración, el
+    caído) se dibuja una vez en una imagen por participante, rumbo, tamaño y densidad y después se copia en
+    píxeles enteros. Caché de unos 6 millones de píxeles que reutiliza los lienzos que olvida.
+- **Tarjeta, ruta prevista y marcas** (fase 7, 0.6.3):
+  - `planRoute` (motor) es el cálculo de `moveIntent` sin tocar el mundo: el servidor lo usa al recibir una
+    orden y el cliente para la ruta prevista (`features/match/plan.ts`), con la velocidad y los costes del
+    terreno que la vista manda solo a su dueño (`ActorView.move`).
+  - `card.ts` y `ParticipantCard.tsx`: lo que dice la tarjeta y el diálogo no modal (foco al abrir, Esc,
+    vuelve el foco al cerrar). `pick.ts`: qué personaje hay bajo el dedo o el ratón (cajas de cada fotograma).
+  - `stores/sight.ts`: «visto por última vez» y la hora de cada caída, calculados en el cliente al cambiar la
+    vista (con la hora del servidor de cada instantánea o fotograma). `art/overlays.ts` dibuja la ruta prevista,
+    su tiempo y las marcas como rótulos con halo.
+- Rendimiento del mapa (medido en la 0.6.3, Chrome sin GPU, 24 personajes con 8 caídos, noche y niebla):
+  60 fps con la CPU normal; con la CPU 4 veces más lenta, 45–50 en un móvil 390×844 y unos 34 en escritorio
+  1280×720. Lo que lo hace posible: gris sin filtro, terreno sin escalar, niebla en recorte (`art/fog.ts`),
+  figuras guardadas como imagen y densidad que baja sola de 2 a 1,5 y a 1 si los fotogramas van lentos
+  (`resolution.ts`). El lienzo 2D se queda (decisión en el GDD §18).
 

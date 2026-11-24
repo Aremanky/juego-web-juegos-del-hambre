@@ -10,7 +10,7 @@ import { drawFigure, type Facing } from '../match/figure';
  * Apariencia del personaje en el mapa (GDD §5.9): piel, peinado, ropa y complementos. Lo que no se toca
  * sale de su retrato; «Como su retrato» lo devuelve todo a eso.
  */
-const FACINGS: Facing[] = ['S', 'E', 'N', 'W'];
+const FACINGS: Facing[] = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'];
 
 /** Figura animada que camina y va girando, sobre un trozo de suelo. */
 export function FigurePreview({ c, size = 150 }: { c: Character; size?: number }) {
@@ -44,8 +44,9 @@ export function FigurePreview({ c, size = 150 }: { c: Character; size?: number }
       g.beginPath();
       g.ellipse(cx + 6, cy, size * 0.17, size * 0.05, 0.2, 0, Math.PI * 2);
       g.fill();
-      const facing = reduce ? 'S' : FACINGS[Math.floor(t / 1800) % 4];
-      drawFigure(g, lookRef.current, cx, cy, size * 0.82, { facing, t, moving: !reduce, running: false, swimming: false, crouched: false, dead: false, celebrating: false });
+      // Da la vuelta por los ocho rumbos (cinco vistas dibujadas y sus espejos).
+      const facing = reduce ? 'S' : FACINGS[Math.floor(t / 1400) % FACINGS.length];
+      drawFigure(g, lookRef.current, cx, cy, size * 0.82, { facing, t, moving: !reduce, running: false, swimming: false, crouched: false, dead: false, celebrating: false, climbing: false });
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
