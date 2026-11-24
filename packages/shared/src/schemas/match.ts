@@ -82,6 +82,7 @@ export interface VoteDTO {
 
 export interface PoiDTO {
   id: number;
+  /** Vacío mientras no lo hayas descubierto (salvo el Obelisco y al terminar la partida). */
   name: string;
   kind: 'ruinas' | 'poblado' | 'cueva' | 'manantial' | 'obelisco';
   x: number;
@@ -155,4 +156,8 @@ export interface MatchEventDTO {
   /** Frases de los bots: quién habla y la frase sola, para el bocadillo sobre su cabeza. */
   actorId?: string;
   say?: string;
+  /** «descubre»: el lugar al que se ha llegado, con su nombre (la instantánea no lo trae hasta entonces). */
+  poi?: { id: number; name: string };
+  /** «fin»: todos los lugares con su nombre. */
+  pois?: PoiDTO[];
 }

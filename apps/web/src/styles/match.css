@@ -11,9 +11,11 @@
 .match-clock.night { color: #a9b8e6; }
 .explored { margin: 0.6rem 0 0.2rem; display: grid; gap: 0.15rem; }
 .explored p { margin: 0; }
-.map-tools { position: absolute; right: 0.75rem; bottom: 0.75rem; display: flex; flex-direction: column; align-items: stretch; gap: 0.35rem; }
+.map-tools { position: absolute; right: 0.75rem; bottom: 0.75rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; width: 7.5rem; }
+/* Acercar y alejar en una fila; el resto, a lo ancho: una fila menos tapando el mapa. */
+.map-tools .btn:nth-child(n + 3) { grid-column: 1 / -1; }
 .map-tools .btn { background: rgba(10, 12, 13, 0.85); min-width: 36px; font-size: var(--fs-1); }
-.map-hint { position: absolute; left: 0.75rem; right: 6.5rem; width: fit-content; bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); margin: 0; padding: 0.3rem 0.6rem; font-size: var(--fs-0); color: var(--ceniza); background: rgba(10, 12, 13, 0.88); pointer-events: none; }
+.map-hint { position: absolute; left: 0.75rem; right: 8.75rem; width: fit-content; bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); margin: 0; padding: 0.3rem 0.6rem; font-size: var(--fs-0); color: var(--ceniza); background: rgba(10, 12, 13, 0.88); pointer-events: none; }
 /* Tarjeta del participante: junto a su personaje en escritorio, hoja inferior en el móvil. Sin bloquear el mapa. */
 /* Opaca: sobre el terreno claro el texto tenue bajaba de 4,5:1 (4,05 sobre arena clara) y, en el móvil,
    los botones del mapa se transparentaban a través de la hoja. */

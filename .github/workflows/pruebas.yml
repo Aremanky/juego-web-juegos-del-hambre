@@ -1,0 +1,59 @@
+# Pruebas en cada subida a main y en cada pull request: tipos, unitarias, integración con PostgreSQL real,
+# build y la prueba de extremo a extremo en Chrome. Las credenciales de PostgreSQL son solo de esta prueba.
+name: Pruebas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    name: Tipos, pruebas, build y extremo a extremo
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ceniza
+          POSTGRES_PASSWORD: ceniza
+          POSTGRES_DB: ceniza_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ceniza"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Base de datos de la prueba de extremo a extremo
+        run: PGPASSWORD=ceniza psql -h 127.0.0.1 -U ceniza -d ceniza_test -c 'CREATE DATABASE ceniza_e2e'
+      - name: Tipos
+        run: npm run typecheck
+      - name: Unitarias e integración
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Extremo a extremo (Chrome)
+        run: npx playwright test
+      - name: Capturas y trazas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e
+          path: e2e/.artifacts
+          retention-days: 7
+          if-no-files-found: ignore

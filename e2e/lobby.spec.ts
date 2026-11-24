@@ -178,10 +178,11 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await a.waitForTimeout(900);
   await shot(a, '13-presentacion');
   await expect(a.getByText(/Nadie se mueve hasta el final/)).toBeVisible({ timeout: 10_000 });
-  await expect(a.getByText('Toca una casilla para ir.', { exact: false })).toBeVisible({ timeout: 10_000 });
-  await expect(b.getByText('Toca una casilla para ir.', { exact: false })).toBeVisible();
+  // Con ratón, pasar por encima enseña la ruta y un clic es la orden; en móvil, el primer toque la enseña.
+  await expect(a.getByText('Pasa el ratón para ver la ruta', { exact: false })).toBeVisible({ timeout: 10_000 });
+  await expect(b.getByText('Toca una casilla para ver la ruta', { exact: false })).toBeVisible();
 
-  // Un toque en el mapa es una orden de ir: aparece «Parar» mientras camina.
+  // Un clic en el mapa es una orden de ir: aparece «Parar» mientras camina.
   const box = (await a.locator('.map-canvas').boundingBox())!;
   await a.mouse.click(box.x + box.width / 2 + 70, box.y + box.height / 2 + 40);
   await expect(a.getByRole('button', { name: 'Parar' })).toBeVisible();

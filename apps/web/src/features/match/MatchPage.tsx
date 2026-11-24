@@ -55,7 +55,6 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
         .catch(() => undefined);
     }
     return () => useMatch.getState().reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!m.matchId || !m.phase) {
@@ -144,7 +143,7 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
           <p className="map-hint">
             {mouse
               ? 'Pasa el ratón para ver la ruta y el tiempo. Haz clic para ir, o en alguien para ver su tarjeta.'
-              : 'Toca una casilla para ver la ruta y vuelve a tocarla para ir. Toca a alguien para ver su tarjeta.'}
+              : 'Toca una casilla para ver la ruta y otra vez para ir. Toca a alguien para ver su tarjeta.'}
           </p>
         )}
         {canAct && preview && (

@@ -449,7 +449,7 @@ export function MapCanvas({
         onPreviewRef.current?.(shown);
       }
       // Puntos de interés que ya conoces (el Obelisco siempre).
-      const known = (p: PoiDTO) => p.kind === 'obelisco' || st.phase === 'terminada' || (!!me?.explored && (me.explored & (1 << p.id)) !== 0);
+      const known = (p: PoiDTO) => !!p.name && (p.kind === 'obelisco' || st.phase === 'terminada' || (!!me?.explored && (me.explored & (1 << p.id)) !== 0));
       const iconScale = Math.max(0.8, Math.min(1.8, view.scale * 0.55));
       // En el holograma, iconos; en la carta ya se ven las casas, ruinas y cuevas dibujadas.
       if (isHolo) for (const p of st.pois) if (p.kind !== 'obelisco' && known(p)) poiIcon(g, p.kind, view.ox + (p.x + 0.5) * s, view.oy + (p.y + 0.5) * s, iconScale, true);
@@ -601,13 +601,24 @@ export function MapCanvas({
         g.fillStyle = fill;
         g.fillText(text, x, y);
       };
+      // Los nombres de los personajes mandan: un rótulo de lugar que los pisaría se aparta arriba o abajo,
+      // y si no cabe, se omite en ese fotograma.
+      g.font = '600 11px "Archivo Variable", Archivo, sans-serif';
+      const taken: [number, number, number, number][] = plates.map(({ a, x, y }) => {
+        const w = g.measureText(a.name).width / 2 + 4;
+        return [x - w, y + 4, x + w, y + 20];
+      });
       g.font = '600 11px Cinzel, "Times New Roman", serif';
       g.letterSpacing = '1px';
       for (const p of st.pois) {
         if (!known(p) || (p.kind === 'obelisco' && view.scale < 1.2)) continue;
         const x = view.ox + (p.x + 0.5) * s;
-        const y = view.oy + (p.y + (p.kind === 'obelisco' ? 1.35 : 1.25)) * s + (isHolo ? iconScale * 6 : 0);
-        if (x < -100 || y < -20 || x > view.w + 100 || y > view.h + 20) continue;
+        const y0 = view.oy + (p.y + (p.kind === 'obelisco' ? 1.35 : 1.25)) * s + (isHolo ? iconScale * 6 : 0);
+        if (x < -100 || y0 < -20 || x > view.w + 100 || y0 > view.h + 20) continue;
+        const hw = g.measureText(p.name).width / 2 + 3;
+        const y = [y0, y0 + 18, y0 - 18, y0 + 34].find((yy) => !taken.some(([l, t, r, b]) => x + hw > l && x - hw < r && yy + 8 > t && yy - 8 < b));
+        if (y === undefined) continue;
+        taken.push([x - hw, y - 8, x + hw, y + 8]);
         halo(p.name, x, y, isHolo ? '#5fe3d0' : '#f1e3bf', isHolo ? 'rgba(2,12,11,0.9)' : 'rgba(22,18,12,0.85)');
       }
       g.letterSpacing = '0px';

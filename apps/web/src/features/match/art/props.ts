@@ -78,11 +78,17 @@ export function buildProps(m: PropMap, seed: number): { props: Prop[]; lights: L
       } else if (t === T.ROCA) {
         if (r(1) < 0.4) add('rock', jx(2), jy(2), 0.4 + r(3) * 0.35, 2);
         else if (r(1) > 0.95) add('deadtree', jx(2), jy(2), 0.75 + r(3) * 0.3, 2);
-      } else if (t === T.MONTANA) {
-        if (r(1) < 0.2) add('crag', jx(2), ty + 0.55 + r(4) * 0.4, 1.8 + r(3) * 1.2, 2);
-        else if (r(1) < 0.42) add('rock', jx(2), jy(2), 0.35 + r(3) * 0.35, 2);
-      } else if (t === T.CUMBRE) {
-        if (r(1) < 0.28) add('peak', jx(2), ty + 0.6 + r(4) * 0.35, 2 + r(3) * 1.1, 2);
+      } else if (t === T.MONTANA || t === T.CUMBRE) {
+        // Macizos, no una alfombra de conos: un pico cada dos casillas en una rejilla escalonada, más grande
+        // cuanto más alto (con nieve solo en lo más alto) y colinas pequeñas en la falda.
+        const onGrid = ty % 2 === 0 && (tx + (ty % 4 === 0 ? 0 : 1)) % 2 === 0;
+        const k = Math.min(1, Math.max(0, (heights[ty * size + tx] / 255 - 0.74) / 0.2));
+        const rock = (x: number, y: number) => { const n = at(x, y); return n === T.MONTANA || n === T.CUMBRE; };
+        const edge = !rock(tx - 1, ty) || !rock(tx + 1, ty) || !rock(tx, ty - 1) || !rock(tx, ty + 1);
+        if (onGrid) {
+          const w = edge ? 1.15 + r(3) * 0.45 : 1.7 + k * 1.7 + r(3) * 0.5;
+          add(t === T.CUMBRE || k > 0.8 ? 'peak' : 'crag', tx + 0.5 + (r(5) - 0.5) * 0.9, ty + 0.85 + (r(4) - 0.5) * 0.5, w, 2);
+        } else if (r(1) < 0.16) add('rock', jx(2), jy(2), 0.3 + r(3) * 0.3, 2);
       } else if (t === T.PANTANO) {
         if (r(1) < 0.4) add('reeds', jx(2), jy(2), 0.5 + r(3) * 0.25, 2);
         else if (r(1) > 0.93) add('deadtree', jx(2), jy(2), 0.7 + r(3) * 0.3, 2);
@@ -349,7 +355,7 @@ function mountain(g: CanvasRenderingContext2D, p: Prop, snowy: boolean) {
     const pw = w * (0.55 - i * 0.06);
     peakShape(g, p.x + side * w * (0.26 + hash(i, seed, 3) * 0.1), p.y - h * 0.12, pw, h * (0.62 + hash(i, seed, 5) * 0.2), seed + i * 7, snowy ? 0.4 : 0, 0.86);
   }
-  peakShape(g, p.x, p.y, w * 0.78, h, seed, snowy ? 0.45 : h > 1.5 ? 0.16 : 0, 1);
+  peakShape(g, p.x, p.y, w * 0.78, h, seed, snowy ? 0.45 : w > 3.1 ? 0.14 : 0, 1);
 }
 
 function reeds(g: CanvasRenderingContext2D, p: Prop) {
