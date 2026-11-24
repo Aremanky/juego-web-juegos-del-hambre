@@ -125,7 +125,7 @@ Notas de reparto:
 - Inicio automático o forzado, sobrevuelo de la arena, presentación y cuenta atrás.
 - Mover con un toque, niebla de guerra opcional, pausa por votación y políticas de desconexión.
 - Abandono, clasificación, ganador, instantáneas cada 10 s y recuperación en pausa.
-- Probada con 24 humanos: tick p95 de 1,9 ms y 6,8 KB/s por jugador (`docs/LOAD.md`).
+- Probada con 24 humanos: tick p95 de 2,5 ms y 5,6 KB/s por jugador (`docs/LOAD.md`, 0.6.4).
 
 **Bots con IA (fase 6)**
 - Deciden entre ir al Obelisco al empezar, explorar la región sin descubrir más cercana, acechar a quien
@@ -178,7 +178,7 @@ Notas de reparto:
   - reposo, andar, correr, nadar, agacharse en la maleza, caído y celebración;
   - anillo del color del jugador, punteado si va con piloto automático;
   - apariencia elegida en la pestaña Apariencia del editor (o derivada del retrato).
-- 41 fps con todo el mapa y los personajes en el Chrome sin GPU de las pruebas.
+- 60 fps en el banco del mapa sin GPU (0.6.4): ver «Rendimiento del mapa» en las pruebas.
 
 **Interfaz e infraestructura**
 - Identidad visual «Ceniza y cristal» en todas las pantallas; revisiones anti-IA sin señales.
@@ -194,7 +194,7 @@ Notas de reparto:
 | Cliente (`apps/web`) | **67/67 ✔** (0.6.4) | Rumbos, vistas de 3/4 y espejo, caídas, selección bajo el dedo, «visto por última vez», tarjeta, ruta prevista, niebla, bocadillos y densidad adaptativa (en la 0.6.4, que baje por debajo de ~50 fps y llegue a 0,75 en pantallas de densidad 1) |
 | Integración (`apps/server`, PostgreSQL real) | **49/49 ✔** (0.6.4) | Salas, partida, niebla, pausa, reconexión, arena con bots, frases repartidas solo a quien ve al bot y movimiento solo para su dueño |
 | Carga (`npm run load`, 30 s) | **✔** (0.6.4) | 24 humanos, mapa grande con niebla: tick p95 2,5 ms, respuesta p95 4 ms, 5,6 KB/s por jugador |
-| Extremo a extremo (Chrome real) | **1/1 ✔** (0.6.4) | Del registro a la partida en escritorio y móvil, con el mapa, la apariencia, el reloj de día, el holograma, la noche y los fps de cada jugador con la página del otro congelada (45–55 en la máquina de pruebas de 2 núcleos, que también ejecuta el servidor) |
+| Extremo a extremo (Chrome real) | **1/1 ✔** (0.6.4) | Del registro a la partida en escritorio y móvil, con el mapa, la apariencia, el reloj de día, el holograma, la noche y los fps de cada jugador con la página del otro congelada (39–55 según la ejecución: la máquina de pruebas tiene 2 núcleos y también ejecuta el servidor y los bots; con un solo jugador en la máquina, 54–60) |
 | Compilación y tipos | ✔ (0.6.4) | `tsc` en los 4 paquetes con `noUnusedLocals` y `noUnusedParameters`, build de servidor y web |
 | Rendimiento del mapa (banco: Chrome sin GPU, 24 personajes con 8 caídos, noche, niebla y bocadillos) | **✔** (0.6.4) | CPU normal: 60 fps en escritorio 1280×720 y en móvil 390×844. CPU 4 veces más lenta, ya asentado: 57 en escritorio (densidad 0,75) y 60 en móvil (densidad 1) |
 | Rendimiento de la IA (23 bots, mapa grande, 5 min) | **✔** (0.6.2) | 0,8 ms de media por tick, p95 3,5 ms, p99 6,9 ms; arranque de cada partida ≤ 16 ms una vez caliente; hash del informe de equilibrio sin cambios |
