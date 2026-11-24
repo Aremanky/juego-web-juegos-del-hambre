@@ -48,5 +48,5 @@ apps/server       Fastify + Socket.IO + Drizzle (PostgreSQL)
 apps/web          React + Vite
 deploy/           systemd, Caddy, Nginx, cloudflared y scripts de instalación y copias
 docs/             diseño, arquitectura y despliegue
-e2e/              pruebas de navegador con varios usuarios.
+e2e/              pruebas de navegador con varios usuarios
 ```
