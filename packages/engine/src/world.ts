@@ -16,6 +16,7 @@ import {
   type MatchPhase,
   type MatchSnapshot,
   type PauseDTO,
+  type Look,
   type Portrait,
   type RngState,
   type VoteDTO,
@@ -56,6 +57,7 @@ export interface ActorState {
   color: string;
   frame: string;
   portrait: Portrait;
+  look?: Look | null;
   district: number;
   gender: Gender;
   /** Casillas por segundo en terreno de coste 1. */
@@ -178,6 +180,7 @@ export function createWorld(opts: { seed: string; mapSize: number; actors: Actor
       color: c.color,
       frame: c.frame,
       portrait: c.portrait,
+      look: c.look ?? null,
       district: a.district,
       gender: a.gender,
       speed: d.moveSpeed,
@@ -499,6 +502,7 @@ function toView(w: World, a: ActorState, self: boolean, seen: boolean): ActorVie
     color: a.color,
     frame: a.frame,
     portrait: a.portrait,
+    look: a.look ?? null,
     district: a.district,
     gender: a.gender,
     alive: a.alive,
@@ -549,7 +553,7 @@ export function snapshotFor(w: World, matchId: string, viewerUserId: string | nu
   return {
     matchId,
     seed: w.seed,
-    map: { size: w.map.size, tiles: encodeTiles(w.map.tiles), heights: encodeTiles(w.map.heights), center: w.map.center, pois: w.map.pois },
+    map: { size: w.map.size, tiles: encodeTiles(w.map.tiles), heights: encodeTiles(w.map.heights), center: w.map.center, pois: w.map.pois, rivers: flatPaths(w.map.rivers), roads: flatPaths(w.map.roads) },
     phase: w.phase,
     phaseEndsAt: w.phaseEndsAt,
     clock: { t: w.t, now, running: !w.paused && w.phase !== 'terminada' },
@@ -563,6 +567,9 @@ export function snapshotFor(w: World, matchId: string, viewerUserId: string | nu
   };
 }
 
+const flatPaths = (paths: Cell[][]) => paths.map((p) => p.flatMap((c) => [c.x, c.y]));
+const unflatPaths = (paths: number[][] | undefined): Cell[][] => (paths ?? []).map((p) => Array.from({ length: p.length / 2 }, (_, i) => ({ x: p[2 * i], y: p[2 * i + 1] })));
+
 /** Ciclo de día y noche de la partida: empieza de día al acabar la cuenta atrás. */
 export function dayCycle(w: World): DayCycle {
   return { dayMs: w.rules.dayMs ?? 480_000, nightMs: w.rules.nightMs ?? 240_000, startAt: w.rules.presentationMs + w.rules.countdownMs };
@@ -572,12 +579,12 @@ export function dayCycle(w: World): DayCycle {
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 export interface WorldJSON extends Omit<World, 'map' | 'rng'> {
-  map: { size: number; tiles: string; heights?: string; center: Cell; pois?: Poi[] };
+  map: { size: number; tiles: string; heights?: string; center: Cell; pois?: Poi[]; rivers?: number[][]; roads?: number[][] };
   rng: RngState;
 }
 
 export function serializeWorld(w: World): WorldJSON {
-  const map = { size: w.map.size, tiles: encodeTiles(w.map.tiles), heights: encodeTiles(w.map.heights), center: { ...w.map.center }, pois: clone(w.map.pois) };
+  const map = { size: w.map.size, tiles: encodeTiles(w.map.tiles), heights: encodeTiles(w.map.heights), center: { ...w.map.center }, pois: clone(w.map.pois), rivers: flatPaths(w.map.rivers), roads: flatPaths(w.map.roads) };
   return { ...clone({ ...w, map: undefined, rng: undefined }), map, rng: w.rng.state() } as WorldJSON;
 }
 
@@ -590,6 +597,8 @@ export function restoreWorld(j: WorldJSON): World {
     heights: j.map.heights ? decodeTiles(j.map.heights) : heightsFromTiles(tiles),
     center: { ...j.map.center },
     pois: j.map.pois ? clone(j.map.pois) : [],
+    rivers: unflatPaths(j.map.rivers),
+    roads: unflatPaths(j.map.roads),
   };
   const w = { ...clone(j), map, rng: new Rng(j.rng) } as World;
   // Partidas guardadas por la 0.4: siguen con las reglas de entonces (sin ventajas de terreno).

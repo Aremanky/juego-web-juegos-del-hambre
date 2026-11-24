@@ -282,10 +282,30 @@ reinicio los bots siguen con su memoria.
 - **Día y noche** (`shared/game/daynight.ts`): duraciones por ritmo de sala; el servidor ajusta la visión (tabla
   `visionNight` por personaje y terreno) y avisa al anochecer y al amanecer; el cliente calcula la oscuridad con
   la misma función y el reloj del juego.
-- **Mapa ilustrado** (`features/match/terrainArt.ts`): relieve sombreado con luz del noroeste a partir de las
-  alturas que manda la instantánea, curvas de nivel, decorado por bioma y ríos y caminos como trazos
-  continuos, todo horneado una vez en un canvas; modo holograma con retícula de sectores.
-- **Personajes animados** (`features/match/figure.ts` y `shared/game/appearance.ts`): figura de piezas con
-  ángulos por fotograma; la apariencia se deriva del personaje hasta el editor de la fase 10. Con el mapa
-  completo y los personajes, 55 fps en el Chrome sin GPU de las pruebas.
+- **Mapa ilustrado** (`features/match/art/`, rehecho en la 0.6.1 porque ampliar una imagen de 8 px por
+  casilla se veía a cuadros y el decorado parecía pegado):
+  - `terrain.ts`: suelo continuo calculado una vez por píxel (6 px por casilla, 4 en mapas grandes) con
+    bordes de bioma orgánicos (deformación de dominio con ruido de gradiente y mezcla de las cuatro casillas
+    vecinas), relieve sombreado y profundidad del agua. Encima, en vectorial: orillas con espuma
+    (marching squares sobre el mismo campo), ríos que se ensanchan aguas abajo y caminos de tierra (recorridos
+    del generador suavizados con Chaikin), la explanada empedrada y los objetos.
+  - `props.ts`: reparto determinista de objetos con posiciones sueltas por casilla (árboles, coníferas,
+    arbustos, rocas, montañas, juncos) y una construcción por punto de interés (casas y pozo en los poblados,
+    ruinas, cuevas, manantiales y braseros en la explanada). Misma luz para todo: del noroeste, sombra al
+    sureste, en una capa aparte para que dos sombras no se sumen. Si hay hoja de sprites
+    (`public/map/atlas.json`, ver `scripts/slice-sheets.py`) se dibujan con ella; si no, en vectorial.
+  - `view.ts`: bloques de 16×16 casillas a 16, 32 o 48 px por casilla según el zoom y la densidad de la
+    pantalla, en una caché con límite de memoria; los que faltan se pintan con otro nivel o la vista general
+    y se generan del centro hacia fuera dentro de un presupuesto por fotograma.
+  - `obelisk.ts`: el Obelisco se dibuja en cada fotograma (zócalo, fuste y brasa con pavesas) y ordenado con
+    los personajes; de noche se encienden su brasa, los braseros y las ventanas de las casas.
+  - Rótulos de mapa con halo (sin cajas). En el holograma: curvas de nivel suaves, orillas, ríos, caminos y
+    el Obelisco en turquesa.
+- **Personajes animados** (`features/match/figure.ts` y `shared/game/appearance.ts`): figura de proporciones
+  de juego por piezas (cabeza, pelo, torso con la prenda, brazos, piernas y botas), sombreado a dos tonos y
+  contorno fino; 9 peinados, 6 prendas, 4 complementos, complexión y estatura. La apariencia elegida en el
+  editor (`look` del personaje, validado con `LookSchema`) viaja en la vista de cada participante; lo que no
+  se elige se deriva del retrato. El camafeo toma el peinado, los colores y el complemento elegidos.
+- Rendimiento: con el mapa nuevo, 41 fps en el Chrome sin GPU de las pruebas (55 con el anterior, que no
+  filtraba al ampliar); en navegadores con GPU el escalado de los bloques no cuesta.
 

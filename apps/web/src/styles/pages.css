@@ -125,11 +125,11 @@
 .preview-card { display: grid; justify-items: center; text-align: center; gap: 0.3rem; padding: 1.25rem 0.75rem 1rem; border: 1px solid var(--line-soft); background: rgba(0, 0, 0, 0.3); }
 .preview-name { font-size: var(--fs-3); margin-top: 0.4rem; }
 .preview-map {
-  position: relative; height: 110px; overflow: hidden;
+  position: relative; height: 128px; overflow: hidden;
   border: 1px solid rgba(95, 227, 208, 0.22);
   background: #0e1a1a url('../assets/contornos.svg') center / cover no-repeat;
 }
-.preview-marker { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -60%); display: grid; justify-items: center; gap: 4px; z-index: 1; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7)); }
+.preview-marker { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -54%); display: grid; justify-items: center; gap: 4px; z-index: 1; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7)); }
 .preview-label { font-size: 0.72rem; font-weight: 700; padding: 0 6px; background: rgba(10, 12, 13, 0.8); border-radius: 2px; white-space: nowrap; }
 .preview-row { display: grid; grid-template-columns: 16px auto 1fr auto; gap: 0.6rem; align-items: center; padding: 0.45rem 0.6rem; border: 1px solid var(--line-soft); background: rgba(0, 0, 0, 0.3); font-size: var(--fs-1); }
 .preview-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
@@ -344,3 +344,10 @@
   .prow { grid-template-columns: minmax(0, 1fr) auto; }
   .prow-tags { grid-column: 1 / -1; justify-content: flex-start; }
 }
+
+/* Apariencia del personaje en el mapa */
+.figure-preview { display: block; }
+.appearance-head { display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; padding: 0.75rem 1rem; border: 1px solid var(--line-soft); background: radial-gradient(ellipse at 30% 80%, rgba(92, 104, 58, 0.18), transparent 60%), rgba(0, 0, 0, 0.3); }
+.appearance-head .stack-sm { display: grid; gap: 0.6rem; max-width: 34ch; }
+.row-wrap { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.appearance .seg { flex-wrap: wrap; }

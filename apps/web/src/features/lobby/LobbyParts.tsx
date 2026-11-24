@@ -42,7 +42,7 @@ export function DistrictBoard({ state, onOpen }: { state: LobbyState; onOpen: (p
       const c = charOf(p);
       return (
         <button key={g} type="button" className={`slot filled${p.ready ? ' ready' : ''}${p.online ? '' : ' offline'}${p.id === me?.id ? ' mine' : ''}`} onClick={() => onOpen(p)} title={`${nameOf(p)}${p.kind === 'bot' ? ' (bot)' : ''}`}>
-          <Portrait portrait={c?.portrait} color={c?.color ?? '#888'} frame={c?.frame ?? 'sencillo'} size={46} bot={p.kind === 'bot'} host={p.isHost} grayscale={!p.online} />
+          <Portrait portrait={c?.portrait} look={c?.look} color={c?.color ?? '#888'} frame={c?.frame ?? 'sencillo'} size={46} bot={p.kind === 'bot'} host={p.isHost} grayscale={!p.online} />
           <span className="slot-name">{nameOf(p)}</span>
         </button>
       );
@@ -82,7 +82,7 @@ export function DistrictBoard({ state, onOpen }: { state: LobbyState; onOpen: (p
             const c = charOf(p);
             return (
               <button key={p.id} type="button" className="unplaced-item" onClick={() => onOpen(p)}>
-                <Portrait portrait={c?.portrait} color={c?.color ?? '#888'} frame="sencillo" size={30} bot={p.kind === 'bot'} grayscale={!p.online} />
+                <Portrait portrait={c?.portrait} look={c?.look} color={c?.color ?? '#888'} frame="sencillo" size={30} bot={p.kind === 'bot'} grayscale={!p.online} />
                 <span className="small">{nameOf(p)}</span>
               </button>
             );
@@ -106,7 +106,7 @@ export function ParticipantList({ state, onOpen }: { state: LobbyState; onOpen: 
         return (
           <li key={p.id} className={`prow${p.id === state.me.participantId ? ' mine' : ''}`}>
             <button type="button" className="prow-main" onClick={() => onOpen(p)}>
-              <Portrait portrait={c?.portrait} color={c?.color ?? '#888'} frame={c?.frame ?? 'sencillo'} size={40} bot={p.kind === 'bot'} host={p.isHost} grayscale={!p.online} />
+              <Portrait portrait={c?.portrait} look={c?.look} color={c?.color ?? '#888'} frame={c?.frame ?? 'sencillo'} size={40} bot={p.kind === 'bot'} host={p.isHost} grayscale={!p.online} />
               <span className="prow-text">
                 <strong>{nameOf(p)}</strong>
                 <span className="small muted">
@@ -146,7 +146,7 @@ export function HumanCard({ p, onClose }: { p: LobbyParticipant; onClose: () => 
   return (
     <Modal title={nameOf(p)} onClose={onClose} width={440}>
       <div className="stack" style={{ justifyItems: 'center', textAlign: 'center' }}>
-        <Portrait portrait={c?.portrait} color={c?.color ?? '#888'} frame={c?.frame ?? 'sencillo'} size={128} host={p.isHost} grayscale={!p.online} />
+        <Portrait portrait={c?.portrait} look={c?.look} color={c?.color ?? '#888'} frame={c?.frame ?? 'sencillo'} size={128} host={p.isHost} grayscale={!p.online} />
         {c?.epithet && <p className="muted">{c.epithet}</p>}
         <p className="small">
           Jugador: {p.displayName}. {d ? `Distrito ${d.roman}, ${d.name}.` : 'Sin distrito asignado.'} {p.online ? 'Conectado.' : 'Desconectado.'}

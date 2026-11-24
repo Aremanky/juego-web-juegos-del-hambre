@@ -4,6 +4,8 @@ import { ABILITIES, ABILITY_KEYS, describeRequirement, meetsRequirement } from '
 import { DEFECT_KEYS, TRAIT_KEYS } from '../game/traits.js';
 import { DISTRICT_COUNT, GENDERS } from '../game/districts.js';
 import { ALLIANCE_POLICIES, COMBAT_STRATEGIES, FRAME_KEYS, PLAYER_COLORS } from '../game/cosmetics.js';
+import { ACCESSORIES, BUILDS, HAIR_COLORS, OUTFIT_STYLES, PANTS_COLORS, SKIN_TONES } from '../game/appearance.js';
+import { CAMEO_HAIR_STYLES } from '../game/avatar.js';
 
 const attr = z.number().int().min(ATTR_MIN).max(ATTR_MAX);
 
@@ -33,6 +35,23 @@ export type Strategy = z.infer<typeof StrategySchema>;
 /** Quita caracteres de control y colapsa espacios. */
 export const cleanText = (s: string) => s.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim();
 
+const HEX = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+/** Apariencia elegida en el editor; lo que falte se deriva del retrato (ver appearanceOf). */
+export const LookSchema = z.object({
+  skin: z.number().int().min(0).max(SKIN_TONES.length - 1).optional(),
+  hairStyle: z.enum(CAMEO_HAIR_STYLES).optional(),
+  hairColor: z.number().int().min(0).max(HAIR_COLORS.length - 1).optional(),
+  outfitStyle: z.enum(OUTFIT_STYLES).optional(),
+  outfit: HEX.optional(),
+  trim: HEX.optional(),
+  pants: z.number().int().min(0).max(PANTS_COLORS.length - 1).optional(),
+  accessory: z.enum(ACCESSORIES).optional(),
+  build: z.enum(BUILDS).optional(),
+  height: z.number().int().min(-2).max(2).optional(),
+});
+export type Look = z.infer<typeof LookSchema>;
+
 export const CharacterSchema = z.object({
   name: z.string().transform(cleanText).pipe(z.string().min(2, 'El nombre necesita al menos 2 caracteres').max(24)),
   gender: z.enum(GENDERS),
@@ -43,6 +62,7 @@ export const CharacterSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   frame: z.enum(FRAME_KEYS),
   portrait: PortraitSchema,
+  look: LookSchema.nullable().optional(),
   victoryPhoto: PortraitSchema.nullable(),
   attributes: AttributesSchema,
   defect: z.enum(DEFECT_KEYS).nullable(),
@@ -110,10 +130,10 @@ export function defaultCharacter(opts: { name?: string; gender?: 'M' | 'F'; seed
 }
 
 /** Datos públicos que ven los demás humanos de un participante humano (sin su build). */
-export type PublicCharacter = Pick<Character, 'name' | 'gender' | 'district' | 'epithet' | 'bio' | 'color' | 'frame' | 'portrait'>;
+export type PublicCharacter = Pick<Character, 'name' | 'gender' | 'district' | 'epithet' | 'bio' | 'color' | 'frame' | 'portrait' | 'look'>;
 
 export function toPublicCharacter(c: Character): PublicCharacter {
-  return { name: c.name, gender: c.gender, district: c.district, epithet: c.epithet, bio: c.bio, color: c.color, frame: c.frame, portrait: c.portrait };
+  return { name: c.name, gender: c.gender, district: c.district, epithet: c.epithet, bio: c.bio, color: c.color, frame: c.frame, portrait: c.portrait, look: c.look ?? null };
 }
 
 /** Plantilla guardada (API REST). */

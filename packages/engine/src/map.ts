@@ -32,6 +32,10 @@ export interface GameMap {
   center: Cell;
   /** Puntos de interés; el 0 es el Obelisco. Cada casilla pertenece a la región del más cercano. */
   pois: Poi[];
+  /** Recorrido de cada río, del manantial a la desembocadura (para dibujarlos como curvas). */
+  rivers: Cell[][];
+  /** Recorrido de cada camino, desde la explanada. */
+  roads: Cell[][];
 }
 
 export const MAP_SIZES = { pequeno: 64, mediano: 96, grande: 128 } as const;
@@ -142,7 +146,7 @@ export function generateMap(seed: string, size: number): GameMap {
       heights[i] = Math.max(0, Math.min(255, Math.round(h * 230)));
     }
   }
-  const map: GameMap = { size, tiles, heights, center: { x: c, y: c }, pois: [{ id: 0, name: 'Explanada del Obelisco', kind: 'obelisco', x: c, y: c }] };
+  const map: GameMap = { size, tiles, heights, center: { x: c, y: c }, pois: [{ id: 0, name: 'Explanada del Obelisco', kind: 'obelisco', x: c, y: c }], rivers: [], roads: [] };
   const free = (x: number, y: number) => Math.hypot(x - c, y - c) > ringR + 2;
 
   // ── Ríos: bajan desde manantiales de montaña por la mayor pendiente hasta un lago o el borde.
@@ -196,6 +200,7 @@ export function generateMap(seed: string, size: number): GameMap {
     }
     if (path.length >= 6) {
       for (const i of path) if (tiles[i] !== T.AGUA) tiles[i] = T.RIO;
+      map.rivers.push([...path, y * size + x].map((i) => ({ x: i % size, y: Math.floor(i / size) })));
       riverSources.push({ x: path[0] % size, y: Math.floor(path[0] / size) });
     }
   }
@@ -243,6 +248,7 @@ export function generateMap(seed: string, size: number): GameMap {
   for (const p of dest) {
     const path = findPath(map, { x: c, y: c }, { x: p.x, y: p.y }, 60_000, ROAD_COSTS);
     if (!path) continue;
+    map.roads.push([{ x: c, y: c }, ...path]);
     for (const cell of path) {
       const i = cell.y * size + cell.x;
       const t = tiles[i];

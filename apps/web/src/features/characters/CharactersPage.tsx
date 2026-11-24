@@ -61,7 +61,7 @@ export function CharactersPage() {
           return (
             <article key={t.id} className="sheet">
               <Link to={`/personajes/${t.id}`} className="sheet-top">
-                <Portrait portrait={t.data.portrait} color={t.data.color} frame={t.data.frame} size={72} />
+                <Portrait portrait={t.data.portrait} look={t.data.look} color={t.data.color} frame={t.data.frame} size={72} />
                 <div>
                   <h3 className="sheet-name">{t.data.name}</h3>
                   {t.data.epithet && <div className="muted small">{t.data.epithet}</div>}

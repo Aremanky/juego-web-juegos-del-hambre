@@ -125,7 +125,7 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
           {me ? (
             <>
               <div className="me-head">
-                <Portrait portrait={me.portrait} color={me.color} frame={frameOf(me)} size={56} />
+                <Portrait portrait={me.portrait} look={me.look} color={me.color} frame={frameOf(me)} size={56} />
                 <div>
                   <div className="display me-name">{me.name}</div>
                   <div className="small faint">
@@ -168,7 +168,7 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
               .sort((a, b) => Number(b.alive) - Number(a.alive) || (a.place ?? 99) - (b.place ?? 99) || a.district - b.district)
               .map((a) => (
                 <li key={a.id} className={`roster-row${a.alive ? '' : ' out'}${a.id === m.me ? ' mine' : ''}`}>
-                  <Portrait portrait={a.portrait} color={a.color} frame="sencillo" size={34} bot={a.kind === 'bot'} grayscale={!a.alive} />
+                  <Portrait portrait={a.portrait} look={a.look} color={a.color} frame="sencillo" size={34} bot={a.kind === 'bot'} grayscale={!a.alive} />
                   <div className="roster-text">
                     <strong>{a.name}</strong>
                     <span className="small faint">{statusText(a, m.me)}</span>
@@ -223,7 +223,7 @@ function Presentation({ actors, mapSize }: { actors: ActorView[]; mapSize: numbe
           const d = districtById(a.district);
           return (
             <li key={a.id} className="tribute" style={{ animationDelay: `${i * 90}ms` }}>
-              <Portrait portrait={a.portrait} color={a.color} frame={frameOf(a)} size={64} bot={a.kind === 'bot'} />
+              <Portrait portrait={a.portrait} look={a.look} color={a.color} frame={frameOf(a)} size={64} bot={a.kind === 'bot'} />
               <strong className="display">{a.name}</strong>
               {a.epithet && <span className="small muted">{a.epithet}</span>}
               <span className="small faint">
@@ -315,7 +315,7 @@ function Results({ actors, winnerId, onClose }: { actors: ActorView[]; winnerId:
       <div className="panel results-box">
         {winner ? (
           <div className="winner">
-            <Portrait portrait={winner.portrait} color={winner.color} frame={frameOf(winner)} size={112} />
+            <Portrait portrait={winner.portrait} look={winner.look} color={winner.color} frame={frameOf(winner)} size={112} />
             <h2 className="display winner-name">{winner.name}</h2>
             <p className="muted">gana los Juegos de la Ceniza</p>
           </div>

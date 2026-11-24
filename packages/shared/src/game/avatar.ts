@@ -34,8 +34,6 @@ function mix(a: string, b: string, t: number): string {
 
 const SOOT = '#17130f';
 /** Tonos del relieve: piel, ropa y tres tallas de pelo. */
-const SKIN = ['#f3ebdd', '#d9ccb5'] as const;
-const CLOTH = ['#ddd0b9', '#bfae91'] as const;
 const HAIR_TONES = [
   ['#bcaa89', '#998769'],
   ['#a3906f', '#7f6e52'],
@@ -197,9 +195,22 @@ function hairShape(style: HairStyle, r: Rng): { fill: string; strands: string; e
   }
 }
 
-export function avatarSvg(seed: string, accent = '#e0662f'): string {
+/** Lo elegido en el editor de apariencia que se ve en el camafeo (colores ya resueltos). */
+export interface CameoLook {
+  hairStyle?: HairStyle;
+  skin?: string;
+  skinShade?: string;
+  hair?: string;
+  hairShade?: string;
+  outfit?: string;
+  trim?: string;
+  accessory?: string;
+}
+
+export function avatarSvg(seed: string, accent = '#e0662f', look?: CameoLook | null): string {
   const r = new Rng('camafeo:' + seed);
-  const style = r.pick(CAMEO_HAIR_STYLES);
+  const picked = r.pick(CAMEO_HAIR_STYLES);
+  const style = look?.hairStyle ?? picked;
   const face: Face = {
     nose: r.int(0, 3) as Face['nose'],
     chin: r.int(0, 2) as Face['chin'],
@@ -207,7 +218,12 @@ export function avatarSvg(seed: string, accent = '#e0662f'): string {
     strongBrow: r.chance(0.4),
     thickNeck: r.chance(0.35),
   };
-  const [hairA, hairB] = r.pick(HAIR_TONES);
+  const tones = r.pick(HAIR_TONES);
+  // Camafeo pintado: si el jugador eligió colores, el relieve los toma sin perder el aire de hueso tallado.
+  const hairA = look?.hair ? mix(tones[0], look.hair, 0.62) : tones[0];
+  const hairB = look?.hairShade ? mix(tones[1], look.hairShade, 0.62) : tones[1];
+  const SKIN = [look?.skin ? mix('#f3ebdd', look.skin, 0.5) : '#f3ebdd', look?.skinShade ? mix('#d9ccb5', look.skinShade, 0.5) : '#d9ccb5'] as const;
+  const CLOTH = [look?.outfit ? mix('#ddd0b9', look.outfit, 0.55) : '#ddd0b9', look?.outfit ? mix('#bfae91', look.outfit, 0.62) : '#bfae91'] as const;
   const extra = r.pick(['ninguno', 'ninguno', 'pendiente', 'cicatriz'] as const);
   const tilt = f(r.int(-40, 25) / 10);
   const hair = hairShape(style, r);
@@ -261,11 +277,16 @@ export function avatarSvg(seed: string, accent = '#e0662f'): string {
   if (extra === 'pendiente' && hair.ear) {
     p.push(`<circle cx="61.2" cy="71.4" r="2.1" fill="none" stroke="${LINE}" stroke-width="1.2"/><circle cx="61.2" cy="75.2" r="1.5" fill="${SKIN[1]}" stroke="${LINE}" stroke-width=".9"/>`);
   }
+  // Complementos elegidos en el editor.
+  const trim = look?.trim ? mix(CLOTH[0], look.trim, 0.6) : CLOTH[1];
+  if (look?.accessory === 'bufanda') p.push(`<path d="M 40 99.5 C 50 106, 66 108, 80 100.5 L 82.5 110 C 66 117.5, 50 115.5, 38 109 Z" fill="${trim}" stroke="${LINE}" stroke-width="1.1"/><path d="M 44 108 L 41 124 L 49 125 L 50 110" fill="${trim}" stroke="${LINE}" stroke-width="1"/>`);
+  if (look?.accessory === 'cinta' && !hair.hood) p.push(`<path d="M 31.5 47 C 44 34.5, 66 28.5, 85.5 36.5" fill="none" stroke="${trim}" stroke-width="4.2" stroke-linecap="round"/>`);
+  if (look?.accessory === 'carcaj' || look?.accessory === 'mochila') p.push(`<path d="M 28 130 C 48 117, 70 108.5, 94 104.5" fill="none" stroke="#7a5a3c" stroke-width="4" stroke-linecap="round"/>`);
   if (extra === 'cicatriz') p.push(`<path d="M 74.5 61.5 L 79.5 70.5" stroke="${LINE}" stroke-width="1.1" stroke-linecap="round" opacity=".8"/>`);
   p.push('</g></g>');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">${p.join('')}</svg>`;
 }
 
-export function avatarDataUri(seed: string, accent?: string): string {
-  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(avatarSvg(seed, accent));
+export function avatarDataUri(seed: string, accent?: string, look?: CameoLook | null): string {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(avatarSvg(seed, accent, look));
 }

@@ -1,0 +1,7 @@
+{
+  "note": "Hojas de props generadas con SpriteCook (gpt-image-2.5-sunburst, medium, 1K, fondo transparente). sha12 se rellena al guardar cada PNG.",
+  "assets": [
+    { "asset_id": "c5c9f7f0-3311-4b74-a0d6-1beb99cf2495", "label": "props-edificios", "file": "props-edificios.png", "sha12": null },
+    { "asset_id": "4703645a-33f0-43ea-bd2a-5cfdf7e23844", "label": "props-naturaleza", "file": "props-naturaleza.png", "sha12": null }
+  ]
+}

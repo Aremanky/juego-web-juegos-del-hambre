@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { CircleCheck, Info, TriangleAlert, X, CircleX, Bot as BotIcon, Crown } from 'lucide-react';
-import type { FrameKey, Portrait as PortraitData } from '@ceniza/shared';
+import type { FrameKey, Look, Portrait as PortraitData } from '@ceniza/shared';
 import { portraitSrc } from '../lib/media';
 import { useToasts } from '../stores/toast';
 
@@ -51,8 +51,11 @@ export function Portrait({
   host = false,
   grayscale = false,
   title,
+  look,
 }: {
   portrait: PortraitData | null | undefined;
+  /** Apariencia elegida: el camafeo toma su peinado, colores y complementos. */
+  look?: Look | null;
   color: string;
   size?: number;
   frame?: FrameKey;
@@ -63,7 +66,7 @@ export function Portrait({
 }) {
   return (
     <div className={`portrait f-${frame}${grayscale ? ' grayscale' : ''}`} style={{ ['--size' as string]: `${size}px`, ['--ring' as string]: color }} title={title}>
-      <img src={portraitSrc(portrait, color, size * (window.devicePixelRatio || 1))} alt="" loading="lazy" draggable={false} />
+      <img src={portraitSrc(portrait, color, size * (window.devicePixelRatio || 1), look)} alt="" loading="lazy" draggable={false} />
       {bot && (
         <span className="badge" aria-label="Bot">
           <BotIcon />

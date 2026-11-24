@@ -1,7 +1,7 @@
 {
   "name": "juegos-ceniza",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Los Juegos de la Ceniza — videojuego web multijugador de supervivencia en tiempo real",
   "type": "module",
   "workspaces": [

@@ -2,11 +2,13 @@ import { useEffect, useRef } from 'react';
 import { T, routePosition } from '@ceniza/engine';
 import { appearanceOf, dayPhase, type ActorView, type Appearance, type PoiDTO } from '@ceniza/shared';
 import { gameNow, presentationProgress, useMatch } from '../../stores/match';
-import { TILE, paintTerrain } from './terrainArt';
+import { drawObelisk, drawObeliskGlow } from './art/obelisk';
+import { TILE, TerrainArt, type MapMode } from './art/terrain';
+import { TerrainView, loadAtlas } from './art/view';
 import { drawFigure, type Facing } from './figure';
 
 /**
- * Mapa de la arena en canvas 2D: terreno ilustrado horneado una vez (o en modo holograma), personajes
+ * Mapa de la arena en canvas 2D: terreno pintado por bloques a la resolución del zoom (o en modo holograma), personajes
  * animados interpolados a 60 fps desde sus rutas, puntos de interés con nombre al descubrirlos, ciclo de
  * día y noche, niebla de guerra, arrastrar para mover la vista, rueda o pellizco para el zoom y un toque
  * para ir. En el mapa nunca va la foto: va el personaje (GDD §5.9).
@@ -46,32 +48,6 @@ function poiIcon(g: CanvasRenderingContext2D, kind: PoiDTO['kind'], x: number, y
   g.restore();
 }
 
-function drawObelisk(g: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  g.save();
-  g.translate(x, y);
-  g.scale(s, s);
-  g.fillStyle = 'rgba(0,0,0,0.35)';
-  g.beginPath();
-  g.ellipse(2, 5, 9, 3, 0, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = '#d8c48a';
-  g.strokeStyle = '#3a2f1c';
-  g.lineWidth = 0.8;
-  g.beginPath();
-  g.moveTo(0, -16);
-  g.lineTo(2.6, -11);
-  g.lineTo(3.6, 5);
-  g.lineTo(-3.6, 5);
-  g.lineTo(-2.6, -11);
-  g.closePath();
-  g.fill();
-  g.stroke();
-  g.fillStyle = '#f26a2e';
-  g.beginPath();
-  g.arc(0, -18, 1.8, 0, Math.PI * 2);
-  g.fill();
-  g.restore();
-}
 
 export interface MapApi {
   zoom(f: number): void;
@@ -95,10 +71,16 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
     const box = wrap.current;
     if (!el || !box || !tiles || !heights || !size) return;
     const g = el.getContext('2d')!;
-    const seedNum = seed.length ? seed.charCodeAt(0) * 31 + seed.length : 7;
-    const carta = paintTerrain(size, tiles, heights, seedNum, 'carta');
-    let holo: HTMLCanvasElement | null = null;
-    let mode: 'carta' | 'holograma' = 'carta';
+    const init = useMatch.getState();
+    const art = new TerrainArt({ seed, size, tiles, heights, pois: init.pois, center: init.center, rivers: init.rivers, roads: init.roads });
+    const terrain = new TerrainView(art);
+    let alive = true;
+    void loadAtlas().then((atlas) => {
+      if (!alive || !atlas) return;
+      art.atlas = atlas;
+      terrain.invalidate();
+    });
+    let mode: MapMode = 'carta';
     const view = { scale: 1, ox: 0, oy: 0, w: 0, h: 0, dpr: 1, fitted: false };
     let raf = 0;
     const looks = new Map<string, Appearance>();
@@ -206,7 +188,6 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         },
         toggleMode: () => {
           mode = mode === 'carta' ? 'holograma' : 'carta';
-          if (mode === 'holograma' && !holo) holo = paintTerrain(size, tiles, heights, seedNum, 'holograma');
           return mode;
         },
       };
@@ -287,9 +268,8 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
       g.fillStyle = '#0d1112';
       g.fillRect(0, 0, view.w, view.h);
-      g.imageSmoothingEnabled = view.scale < 1;
-      const isHolo = mode === 'holograma' && !!holo;
-      g.drawImage(isHolo ? holo! : carta, view.ox, view.oy, size * s, size * s);
+      const isHolo = mode === 'holograma';
+      terrain.draw(g, view, mode, { budgetMs: flying ? 4 : 8 });
       if (isHolo) {
         // Retícula de sectores de la Ciudadela: A–L por columnas y 1–12 por filas.
         const step = (size / 12) * s;
@@ -312,13 +292,21 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
           g.fillText(String(k + 1), Math.max(4, view.ox + 4), view.oy + k * step + 4);
         }
       }
-      drawObelisk(g, view.ox + (st.center.x + 0.5) * s, view.oy + (st.center.y + 0.5) * s, Math.max(0.6, Math.min(2.2, view.scale)));
+      const obX = view.ox + (st.center.x + 0.5) * s;
+      const obY = view.oy + (st.center.y + 0.5) * s;
+      let obeliskDone = false;
+      const obelisk = () => {
+        if (obeliskDone) return;
+        obeliskDone = true;
+        drawObelisk(g, obX, obY, s, art.atlas, mode === 'holograma');
+      };
 
       const me = st.me ? st.actors[st.me] : null;
       // Puntos de interés que ya conoces (el Obelisco siempre).
       const known = (p: PoiDTO) => p.kind === 'obelisco' || st.phase === 'terminada' || (!!me?.explored && (me.explored & (1 << p.id)) !== 0);
       const iconScale = Math.max(0.8, Math.min(1.8, view.scale * 0.55));
-      for (const p of st.pois) if (p.kind !== 'obelisco' && known(p)) poiIcon(g, p.kind, view.ox + (p.x + 0.5) * s, view.oy + (p.y + 0.5) * s, iconScale, isHolo);
+      // En el holograma, iconos; en la carta ya se ven las casas, ruinas y cuevas dibujadas.
+      if (isHolo) for (const p of st.pois) if (p.kind !== 'obelisco' && known(p)) poiIcon(g, p.kind, view.ox + (p.x + 0.5) * s, view.oy + (p.y + 0.5) * s, iconScale, true);
       // Ruta propia: línea discontinua hasta el destino.
       if (me?.route && me.alive) {
         const r = me.route;
@@ -342,7 +330,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         g.stroke();
       }
 
-      const fig = Math.max(26, Math.min(64, s * 1.7));
+      const fig = Math.max(28, Math.min(72, s * 1.85));
       const list = st.order.map((id) => st.actors[id]).filter((a): a is ActorView => !!a && a.seen);
       // Primero los caídos (debajo); después, de arriba abajo, para que los de delante tapen a los de detrás.
       list.sort((a, b) => Number(a.alive) - Number(b.alive) || posOf(a, now).y - posOf(b, now).y);
@@ -351,6 +339,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         const p = posOf(a, now);
         const x = view.ox + (p.x + 0.5) * s;
         const y = view.oy + (p.y + 0.75) * s;
+        if (y > obY + 0.55 * s) obelisk();
         if (x < -60 || y < -80 || x > view.w + 60 || y > view.h + 60) continue;
         // Hacia dónde mira y cómo se mueve, a partir de su ruta.
         let moving = false;
@@ -403,14 +392,35 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         if (a.id === st.me || fig >= 40) plates.push({ a, x, y });
       }
 
-      // Noche: la arena se oscurece al anochecer y aclara al amanecer.
-      if (st.day && st.phase === 'en_curso') {
-        const dark = dayPhase(now, st.day).darkness;
-        if (dark > 0) {
-          g.fillStyle = `rgba(6,10,28,${(0.5 * dark).toFixed(3)})`;
-          g.fillRect(0, 0, view.w, view.h);
+      obelisk();
+
+      // Noche: la arena se oscurece al anochecer y aclara al amanecer; se encienden ventanas y braseros.
+      const dark = st.day && st.phase === 'en_curso' ? dayPhase(now, st.day).darkness : 0;
+      if (dark > 0) {
+        g.fillStyle = `rgba(6,10,28,${(0.55 * dark).toFixed(3)})`;
+        g.fillRect(0, 0, view.w, view.h);
+        g.save();
+        g.globalCompositeOperation = 'lighter';
+        for (const l of art.lights) {
+          const lx = view.ox + l.x * s;
+          const ly = view.oy + l.y * s;
+          if (lx < -80 || ly < -80 || lx > view.w + 80 || ly > view.h + 80) continue;
+          const fire = l.kind === 'fuego';
+          const flick = fire ? 0.85 + Math.sin(now / 130 + l.x * 7) * 0.08 + Math.sin(now / 57 + l.y) * 0.07 : 1;
+          const r = s * (fire ? 1.4 : 0.7) * flick;
+          const grad = g.createRadialGradient(lx, ly, 0, lx, ly, r);
+          grad.addColorStop(0, `rgba(255,${fire ? 150 : 190},${fire ? 70 : 110},${(0.55 * dark * flick).toFixed(3)})`);
+          grad.addColorStop(1, 'rgba(255,140,60,0)');
+          g.fillStyle = grad;
+          g.fillRect(lx - r, ly - r, r * 2, r * 2);
+          if (!fire) {
+            g.fillStyle = `rgba(255,205,130,${(0.9 * dark).toFixed(3)})`;
+            g.fillRect(lx - s * 0.06, ly - s * 0.05, s * 0.12, s * 0.1);
+          }
         }
+        g.restore();
       }
+      drawObeliskGlow(g, obX, obY, s, now, dark);
 
       // Niebla de guerra: lo que queda fuera de tu radio de visión se oscurece.
       if (st.visibility === 'niebla' && me?.alive && me.vision && st.phase === 'en_curso') {
@@ -425,32 +435,34 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
         g.fillRect(0, 0, view.w, view.h);
       }
 
-      // Rótulos por encima de la noche y la niebla, para que siempre se lean.
-      g.font = '600 11px "Archivo Variable", Archivo, sans-serif';
+      // Rótulos de mapa (texto con halo, sin cajas) por encima de la noche y la niebla.
       g.textAlign = 'center';
       g.textBaseline = 'middle';
+      g.lineJoin = 'round';
+      const halo = (text: string, x: number, y: number, fill: string, stroke: string) => {
+        g.strokeStyle = stroke;
+        g.lineWidth = 3.5;
+        g.strokeText(text, x, y);
+        g.fillStyle = fill;
+        g.fillText(text, x, y);
+      };
+      g.font = '600 11px Cinzel, "Times New Roman", serif';
+      g.letterSpacing = '1px';
       for (const p of st.pois) {
         if (!known(p) || (p.kind === 'obelisco' && view.scale < 1.2)) continue;
         const x = view.ox + (p.x + 0.5) * s;
-        const y = view.oy + (p.y + 0.5) * s + iconScale * 9 + 8;
+        const y = view.oy + (p.y + (p.kind === 'obelisco' ? 1.35 : 1.25)) * s + (isHolo ? iconScale * 6 : 0);
         if (x < -100 || y < -20 || x > view.w + 100 || y > view.h + 20) continue;
-        const w = g.measureText(p.name).width + 10;
-        g.fillStyle = isHolo ? 'rgba(4,16,15,0.82)' : 'rgba(24,20,14,0.78)';
-        g.fillRect(x - w / 2, y - 8, w, 16);
-        g.fillStyle = isHolo ? '#5fe3d0' : '#e6c97e';
-        g.fillText(p.name, x, y);
+        halo(p.name, x, y, isHolo ? '#5fe3d0' : '#f1e3bf', isHolo ? 'rgba(2,12,11,0.9)' : 'rgba(22,18,12,0.85)');
       }
-      for (const { a, x, y } of plates) {
-        const w = g.measureText(a.name).width + 8;
-        g.fillStyle = 'rgba(10,12,13,0.78)';
-        g.fillRect(x - w / 2, y + 5, w, 15);
-        g.fillStyle = a.id === st.me ? '#ff9152' : a.alive ? '#efe7da' : '#8f877b';
-        g.fillText(a.name, x, y + 12.5);
-      }
+      g.letterSpacing = '0px';
+      g.font = '600 11px "Archivo Variable", Archivo, sans-serif';
+      for (const { a, x, y } of plates) halo(a.name, x, y + 12, a.id === st.me ? '#ffb07a' : a.alive ? '#f3ece0' : '#8f877b', 'rgba(10,12,13,0.88)');
     };
     raf = requestAnimationFrame(draw);
 
     return () => {
+      alive = false;
       cancelAnimationFrame(raf);
       ro.disconnect();
       el.removeEventListener('pointerdown', down);

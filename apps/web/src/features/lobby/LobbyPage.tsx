@@ -220,7 +220,7 @@ function MyCharacter({ me, budget, onEdit }: { me: LobbyParticipant | null; budg
       </div>
       {c ? (
         <div className="mychar">
-          <Portrait portrait={c.portrait} color={c.color} frame={c.frame} size={84} />
+          <Portrait portrait={c.portrait} look={c.look} color={c.color} frame={c.frame} size={84} />
           <div>
             <div className="display mychar-name">{c.name}</div>
             {c.epithet && <div className="muted small">{c.epithet}</div>}
