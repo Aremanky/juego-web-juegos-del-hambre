@@ -280,7 +280,7 @@ small, .small { font-size: var(--fs-0); }
   gap: 1rem;
   padding: 0.5rem clamp(0.75rem, 3vw, 1.5rem);
   padding-top: max(0.5rem, env(safe-area-inset-top));
-  background: linear-gradient(180deg, rgba(15, 21, 23, 0.96), rgba(15, 21, 23, 0.82));
+  background: linear-gradient(180deg, rgba(15, 21, 23, 0.98), rgba(15, 21, 23, 0.94));
   border-bottom: 1px solid var(--line);
 }
 .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--hueso); text-decoration: none; }

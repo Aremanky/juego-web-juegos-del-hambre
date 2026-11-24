@@ -202,7 +202,7 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   const fpsOf = async (p: Page, other: Page) => {
     const freeze = await other.context().newCDPSession(other);
     await freeze.send('Page.setWebLifecycleState', { state: 'frozen' });
-    await p.waitForTimeout(500);
+    await p.waitForTimeout(2500); // que se asiente sin la otra página (bloques del terreno, densidad)
     const v = await p.evaluate(
       () =>
         new Promise<number>((done) => {

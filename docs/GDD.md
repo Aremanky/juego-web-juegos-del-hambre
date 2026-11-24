@@ -432,7 +432,8 @@ GPU (§17):
 montaña, de 6 a 10 puntos de interés por muestreo con distancia mínima (ruinas, poblados, cuevas y los
 manantiales), con nombre propio, y caminos desde la explanada hasta poblados y ruinas (con vados en los
 ríos). Cada casilla pertenece a la región de su punto de interés más cercano; entrar en una región la
-descubre y su nombre aparece en tu mapa. Todo esto se hace en la CPU del servidor en milisegundos, así que
+descubre y su nombre aparece en tu mapa (*desde la 0.6.4* el nombre ni siquiera viaja en los datos de la
+partida hasta que llegas; al terminar se revelan todos). Todo esto se hace en la CPU del servidor en milisegundos, así que
 de momento no hace falta la GPU del anfitrión para el mapa.
 
 ### 7.2 Biomas
