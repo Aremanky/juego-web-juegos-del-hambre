@@ -8,6 +8,7 @@ import { drawLastSeen, drawPreviewLabel, drawRoutePreview } from './art/overlays
 import { BUBBLE_MS, SpeechLayer, type SpeechItem } from './art/speech';
 import { TILE, TerrainArt, type MapMode } from './art/terrain';
 import { TerrainView, loadAtlas } from './art/view';
+import { probe } from './art/probe';
 import { snapScale } from './camera';
 import { facingOf } from './facing';
 import type { Facing, Pose } from './figure';
@@ -107,7 +108,7 @@ export function MapCanvas({
     const el = canvas.current;
     const box = wrap.current;
     if (!el || !box || !tiles || !heights || !size) return;
-    const g = el.getContext('2d')!;
+    const g = el.getContext('2d', { alpha: false })!;
     const init = useMatch.getState();
     const art = new TerrainArt({ seed, size, tiles, heights, pois: init.pois, center: init.center, rivers: init.rivers, roads: init.roads });
     const terrain = new TerrainView(art);
@@ -366,6 +367,15 @@ export function MapCanvas({
 
     const draw = () => {
       raf = requestAnimationFrame(draw);
+      const P = probe();
+      let lapAt = P ? performance.now() : 0;
+      const lap = (k: string) => {
+        if (!P) return;
+        const t = performance.now();
+        P.ms[k] = (P.ms[k] ?? 0) + t - lapAt;
+        lapAt = t;
+      };
+      const off = (k: string) => !!P?.off[k];
       const st = useMatch.getState();
       const now = gameNow();
       const realNow = Date.now();
@@ -388,10 +398,24 @@ export function MapCanvas({
       if (steady) settle();
       const s = view.scale * TILE;
       g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+      // Fondo solo donde no llega el mapa: el terreno es opaco y repintar la pantalla entera cada fotograma, sin
+      // GPU, era otro relleno a pantalla completa.
       g.fillStyle = '#0d1112';
-      g.fillRect(0, 0, view.w, view.h);
+      const mx0 = view.ox;
+      const my0 = view.oy;
+      const mx1 = view.ox + size * s;
+      const my1 = view.oy + size * s;
+      if (off('terreno') || mx0 > 0 || my0 > 0 || mx1 < view.w || my1 < view.h) {
+        if (off('terreno')) g.fillRect(0, 0, view.w, view.h);
+        else {
+          if (my0 > 0) g.fillRect(0, 0, view.w, my0);
+          if (my1 < view.h) g.fillRect(0, my1, view.w, view.h - my1);
+          if (mx0 > 0) g.fillRect(0, Math.max(0, my0), mx0, Math.min(view.h, my1) - Math.max(0, my0));
+          if (mx1 < view.w) g.fillRect(mx1, Math.max(0, my0), view.w - mx1, Math.min(view.h, my1) - Math.max(0, my0));
+        }
+      }
       const isHolo = mode === 'holograma';
-      terrain.draw(g, view, mode, { budgetMs: flying ? 4 : 8 });
+      if (!off('terreno')) terrain.draw(g, view, mode, { budgetMs: flying ? 4 : 8 });
       if (isHolo) {
         // Retícula de sectores de la Ciudadela: A–L por columnas y 1–12 por filas.
         const step = (size / 12) * s;
@@ -479,6 +503,7 @@ export function MapCanvas({
       const frame = { ox: view.ox, oy: view.oy, s, w: view.w, h: view.h };
       if (preview && me) drawRoutePreview(g, preview, posOf(me, now), now, frame, isHolo);
 
+      lap('terreno');
       const fig = Math.max(28, Math.min(72, s * 1.85));
       const list = st.order.map((id) => st.actors[id]).filter((a): a is ActorView => !!a && a.seen);
       // Primero los caídos (debajo); después, de arriba abajo, para que los de delante tapen a los de detrás.
@@ -546,7 +571,7 @@ export function MapCanvas({
         };
         // Cada fotograma de su animación se dibuja una vez y después se copia (sin GPU, dibujar las figuras era lo
         // que más costaba de cada fotograma).
-        sprites.draw(g, a.id, lookOf(a), x, swimming ? y + fig * 0.22 : y, fig, pose, view.dpr, steady);
+        if (!off('figuras')) sprites.draw(g, a.id, lookOf(a), x, swimming ? y + fig * 0.22 : y, fig, pose, view.dpr, steady);
         frameHits.push({ id: a.id, x, top: y - fig * 1.05, bottom: y + 4, half: fig * 0.26 });
         if (a.id === st.me || fig >= 40) plates.push({ a, x, y });
         if (a.alive) heads.set(a.id, { x, y: y - fig * (swimming ? 0.8 : 1.02), r: fig * 0.2 });
@@ -554,9 +579,10 @@ export function MapCanvas({
 
       obelisk();
 
+      lap('figuras');
       // Noche: la arena se oscurece al anochecer y aclara al amanecer; se encienden ventanas y braseros.
       const dark = st.day && st.phase === 'en_curso' ? dayPhase(now, st.day).darkness : 0;
-      if (dark > 0) {
+      if (dark > 0 && !off('noche')) {
         g.fillStyle = `rgba(6,10,28,${(0.55 * dark).toFixed(3)})`;
         g.fillRect(0, 0, view.w, view.h);
         g.save();
@@ -581,20 +607,23 @@ export function MapCanvas({
         g.restore();
       }
       drawObeliskGlow(g, obX, obY, s, now, dark);
+      lap('noche');
 
       // Niebla de guerra: lo que queda fuera de tu radio de visión se oscurece.
-      if (st.visibility === 'niebla' && me?.alive && me.vision && st.phase === 'en_curso') {
+      if (!off('niebla') && st.visibility === 'niebla' && me?.alive && me.vision && st.phase === 'en_curso') {
         const p = posOf(me, now);
         const x = view.ox + (p.x + 0.5) * s;
         const y = view.oy + (p.y + 0.5) * s;
         fog.draw(g, x, y, me.vision * s, view.w, view.h, view.dpr);
       }
 
+      lap('niebla');
       // Rótulos de mapa (texto con halo, sin cajas) por encima de la noche y la niebla.
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.lineJoin = 'round';
       const halo = (text: string, x: number, y: number, fill: string, stroke: string) => {
+        if (off('rotulos')) return;
         g.strokeStyle = stroke;
         g.lineWidth = 3.5;
         g.strokeText(text, x, y);
@@ -642,7 +671,10 @@ export function MapCanvas({
         if (head && real - line.at <= BUBBLE_MS) said.push({ id, text: line.text, at: line.at, hx: head.x, hy: head.y, hr: head.r });
       }
       const faces = said.length ? [...heads].map(([id, h]) => ({ id, ...h })) : [];
-      speech.draw(g, said, { holo: isHolo, reduced, bounds: view, heads: faces, now: real });
+      lap('rotulos');
+      if (!off('bocadillos')) speech.draw(g, said, { holo: isHolo, reduced, bounds: view, heads: faces, now: real });
+      lap('bocadillos');
+      if (P) P.frames++;
       hits = frameHits;
     };
     raf = requestAnimationFrame(draw);

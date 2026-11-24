@@ -8,10 +8,21 @@ export function cameoLook(look: Look | null | undefined): CameoLook | null {
   return { hairStyle: look.hairStyle, skin: skin?.[0], skinShade: skin?.[1], hair: hair?.[0], hairShade: hair?.[1], outfit: look.outfit, trim: look.trim, accessory: look.accessory };
 }
 
+/** Camafeos ya generados: la lista de participantes se vuelve a pintar con cada fotograma del servidor (10 por
+ * segundo) y rehacer el SVG de cada uno en cada vuelta era trabajo tirado. */
+const cameos = new Map<string, string>();
+
 export function portraitSrc(p: Portrait | null | undefined, color: string, size = 64, look?: Look | null): string {
   if (!p) return avatarDataUri('anonimo', color);
   if (p.kind === 'photo') return photoUrl(p.photoId, size > 120 ? 'avatar' : 'marker', p.v);
-  return avatarDataUri(p.seed, color, cameoLook(look));
+  const key = `${p.seed}|${color}|${look ? JSON.stringify(look) : ''}`;
+  let uri = cameos.get(key);
+  if (!uri) {
+    uri = avatarDataUri(p.seed, color, cameoLook(look));
+    if (cameos.size > 400) cameos.clear();
+    cameos.set(key, uri);
+  }
+  return uri;
 }
 
 export function photoRefSrc(ref: { id: string; v: number } | null | undefined, fallbackSeed: string, size = 64): string {
