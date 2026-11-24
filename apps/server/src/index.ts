@@ -1,4 +1,5 @@
 import { mkdir } from 'node:fs/promises';
+import { warmUpCombat } from '@ceniza/engine';
 import { config } from './config';
 import { buildApp } from './app';
 import { runMigrations } from './db/client';
@@ -8,6 +9,8 @@ async function main() {
   const { app, ctx } = await buildApp(config);
   await runMigrations(ctx.db);
   app.log.info('migraciones aplicadas');
+  // Sin esto, la IA de la primera partida tras arrancar da un tirón mientras se compila el combate.
+  app.log.info(`combate preparado en ${Math.round(warmUpCombat())} ms`);
 
   await app.listen({ host: config.HOST, port: config.PORT });
   app.log.info(`${config.APP_NAME} escuchando en http://${config.HOST}:${config.PORT}`);

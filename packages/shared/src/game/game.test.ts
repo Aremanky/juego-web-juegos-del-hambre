@@ -4,11 +4,13 @@ import {
   ARCHETYPES,
   ATTRIBUTE_KEYS,
   ATTRIBUTE_BUDGETS,
+  BOT_ACTION_KEYS,
   CharacterSchema,
   DEFAULT_ROOM_CONFIG,
   DIFFICULTY_KEYS,
   PERSONALITY_KEYS,
   PLAYSTYLE_KEYS,
+  PLAYSTYLES,
   Rng,
   avatarSvg,
   buildCost,
@@ -135,6 +137,22 @@ describe('fábrica de bots', () => {
       expect(taken.has(b.character.name.toLowerCase())).toBe(false);
       taken.add(b.character.name.toLowerCase());
     }
+  });
+});
+
+describe('estilos de juego', () => {
+  it('cada estilo sesga las acciones de la IA con valores moderados', () => {
+    for (const k of PLAYSTYLE_KEYS) {
+      for (const [action, v] of Object.entries(PLAYSTYLES[k].actionBias)) {
+        expect(BOT_ACTION_KEYS as readonly string[]).toContain(action);
+        expect(v).toBeGreaterThanOrEqual(0.5);
+        expect(v).toBeLessThanOrEqual(1.5);
+      }
+    }
+    expect(PLAYSTYLES.equilibrado.actionBias).toEqual({});
+    expect(PLAYSTYLES.cazador.actionBias.acechar).toBeGreaterThan(1);
+    expect(PLAYSTYLES.superviviente.actionBias.esconderse).toBeGreaterThan(1);
+    expect(PLAYSTYLES.saqueador.actionBias.obelisco).toBeGreaterThan(1);
   });
 });
 

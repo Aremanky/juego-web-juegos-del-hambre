@@ -1,6 +1,7 @@
 import {
   COMBAT_ENERGY,
   LOW_HEALTH,
+  SITUATIONAL_MODIFIERS,
   TERRAIN_RULES,
   WEAPONS,
   computeDerived,
@@ -150,22 +151,56 @@ export function createFighter(init: FighterInit): Fighter {
   };
 }
 
-/** Estadísticas del luchador en este momento del combate. */
-export function fighterStats(c: Combat, i: number, extra: Situation = {}): SituationalStats {
+/** Umbrales de salud que cambian las estadísticas: la regla de salud baja y los `hpBelow` de los efectos. */
+const HP_THRESHOLDS = [...new Set([LOW_HEALTH, ...SITUATIONAL_MODIFIERS.flatMap((m) => (m.when.hpBelow === undefined ? [] : [m.when.hpBelow]))])];
+
+/**
+ * Clave de una situación con todo lo que lee `situationalStats`. La salud solo cuenta por los umbrales
+ * que cruza, así que dos rondas con distinta salud pero los mismos umbrales comparten resultado.
+ */
+function situationKey(s: Situation): string {
+  const flags = [s.night, s.hiding, s.climbing, s.camouflaged, s.sprinting, s.pursuing, s.firstAttack].map((v) => (v ? 1 : 0)).join('');
+  let k = `${s.terrain ?? ''}|${flags}|${s.allies ?? 0}|${s.attack ?? ''}|${(s.weaponTags ?? []).join(',')}|${s.against ?? ''}|${s.activity ?? ''}|`;
+  const hp = s.hpFraction ?? 1;
+  for (const t of HP_THRESHOLDS) k += hp < t ? '1' : '0';
+  return k;
+}
+
+/**
+ * Estadísticas ya calculadas de cada luchador (en un combate se piden muchas veces por ronda). Sin
+ * situación extra, lo único que cambia dentro de un combate es si ya atacó y qué umbrales de salud
+ * cruza: eso indexa `slots` sin construir cadenas. Si cambiasen el terreno, el arma o los aliados, se
+ * empieza de cero.
+ */
+interface StatsCache {
+  terrain: TerrainKind;
+  weapon: WeaponDef;
+  allies: number;
+  slots: (SituationalStats | undefined)[];
+  other: Map<string, SituationalStats>;
+}
+const statsCache = new WeakMap<Fighter, StatsCache>();
+
+/** Estadísticas del luchador en este momento del combate. El resultado es compartido: no se modifica. */
+export function fighterStats(c: Combat, i: number, extra?: Situation): SituationalStats {
   const f = c.fighters[i];
-  return situationalStats(
-    f.build,
-    {
-      terrain: f.terrain,
-      allies: f.allies + (c.support[i] ? 1 : 0),
-      hpFraction: f.hp / f.maxHp,
-      attack: f.weapon.range,
-      weaponTags: f.weapon.tags,
-      firstAttack: !f.attacked,
-      ...extra,
-    },
-    f.base,
-  ).stats;
+  const allies = f.allies + (c.support[i] ? 1 : 0);
+  let cache = statsCache.get(f);
+  if (!cache || cache.terrain !== f.terrain || cache.weapon !== f.weapon || cache.allies !== allies) {
+    statsCache.set(f, (cache = { terrain: f.terrain, weapon: f.weapon, allies, slots: [], other: new Map() }));
+  }
+  const hp = f.hp / f.maxHp;
+  const sit = (): Situation => ({ terrain: f.terrain, allies, hpFraction: hp, attack: f.weapon.range, weaponTags: f.weapon.tags, firstAttack: !f.attacked, ...extra });
+  if (!extra) {
+    let slot = f.attacked ? 1 : 0;
+    for (const t of HP_THRESHOLDS) slot = slot * 2 + (hp < t ? 1 : 0);
+    return (cache.slots[slot] ??= situationalStats(f.build, sit(), f.base).stats);
+  }
+  const s = sit();
+  const key = situationKey(s);
+  let stats = cache.other.get(key);
+  if (!stats) cache.other.set(key, (stats = situationalStats(f.build, s, f.base).stats));
+  return stats;
 }
 
 export function startCombat(

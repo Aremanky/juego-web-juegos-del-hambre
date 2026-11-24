@@ -6,3 +6,4 @@ export * from './world.js';
 export * from './combat.js';
 export * from './balance.js';
 export * from './ai.js';
+export * from './speech.js';

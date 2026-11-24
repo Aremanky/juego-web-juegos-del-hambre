@@ -146,7 +146,11 @@ export interface MatchFrame {
 }
 
 export interface MatchEventDTO {
-  kind: 'fase' | 'eliminado' | 'pausa' | 'reanudada' | 'votacion' | 'fin' | 'conexion' | 'descubre' | 'anochece' | 'amanece';
+  kind: 'fase' | 'eliminado' | 'pausa' | 'reanudada' | 'votacion' | 'fin' | 'conexion' | 'descubre' | 'anochece' | 'amanece' | 'dice';
+  /** Texto para el registro de la partida («Nombre: «frase»» en las frases de los bots). */
   text: string;
   at: number;
+  /** Frases de los bots: quién habla y la frase sola, para el bocadillo sobre su cabeza. */
+  actorId?: string;
+  say?: string;
 }

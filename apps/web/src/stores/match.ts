@@ -31,6 +31,8 @@ interface MatchStore {
   order: string[];
   clock: { t: number; at: number; running: boolean };
   log: MatchEventDTO[];
+  /** Lo último que ha dicho cada bot y cuándo llegó (hora local), para su bocadillo en el mapa. */
+  speech: Record<string, { text: string; at: number }>;
   applySnapshot(snap: MatchSnapshot): void;
   reset(): void;
   wire(): void;
@@ -62,6 +64,7 @@ const empty = {
   order: [],
   clock: { t: 0, at: 0, running: false },
   log: [],
+  speech: {},
 };
 
 export const useMatch = create<MatchStore>((set, get) => ({
@@ -93,6 +96,7 @@ export const useMatch = create<MatchStore>((set, get) => ({
         order: snap.actors.map((a) => a.id),
         clock: { t: snap.clock.t, at: snap.clock.now, running: snap.clock.running },
         log: same ? get().log : [],
+        speech: same ? get().speech : {},
       });
   },
   wire() {
@@ -116,6 +120,13 @@ export const useMatch = create<MatchStore>((set, get) => ({
       });
     });
     s.on('match:event', (e: MatchEventDTO) => {
+      if (e.kind === 'dice' && e.actorId && e.say) {
+        // Solo llega si ves al bot. Sin aviso emergente: va en su bocadillo y en el registro.
+        const now = Date.now();
+        const recent = Object.entries(get().speech).filter(([, v]) => now - v.at < 10_000);
+        set({ log: [...get().log, e].slice(-40), speech: { ...Object.fromEntries(recent), [e.actorId]: { text: e.say, at: now } } });
+        return;
+      }
       set({ log: [...get().log, e].slice(-40) });
       if (e.kind === 'fin') toast.success(e.text);
       else if (e.kind === 'eliminado' || e.kind === 'pausa' || e.kind === 'votacion' || e.kind === 'descubre') toast.info(e.text);

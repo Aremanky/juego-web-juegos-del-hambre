@@ -278,6 +278,17 @@ export function runMatchups(you: Contender, field: Contender[] = ARCHETYPE_CONTE
   return SCENARIOS.map((s) => field.map((f) => duel(s, you, f, runs, new Rng(`${seed}:${s.key}:${f.key}`))));
 }
 
+/**
+ * Pone a punto el combate antes de la primera partida: el motor de JavaScript compila el código caliente
+ * la primera vez que se usa, y sin esto los primeros segundos de la primera partida tras arrancar el
+ * servidor tardan el doble. Tarda unos 150 ms y devuelve lo que ha tardado.
+ */
+export function warmUpCombat(): number {
+  const t0 = Date.now();
+  for (const c of ARCHETYPE_CONTENDERS) runMatchups(c, ARCHETYPE_CONTENDERS, 2, 'calentamiento');
+  return Math.max(1, Date.now() - t0);
+}
+
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 
 export function formatBalanceMarkdown(r: BalanceReport): string {

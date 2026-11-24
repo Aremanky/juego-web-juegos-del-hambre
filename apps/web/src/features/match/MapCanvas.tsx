@@ -3,6 +3,7 @@ import { T, routePosition } from '@ceniza/engine';
 import { appearanceOf, dayPhase, type ActorView, type Appearance, type PoiDTO } from '@ceniza/shared';
 import { gameNow, presentationProgress, useMatch } from '../../stores/match';
 import { drawObelisk, drawObeliskGlow } from './art/obelisk';
+import { BUBBLE_MS, SpeechLayer, type SpeechItem } from './art/speech';
 import { TILE, TerrainArt, type MapMode } from './art/terrain';
 import { TerrainView, loadAtlas } from './art/view';
 import { drawFigure, type Facing } from './figure';
@@ -82,6 +83,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
     });
     let mode: MapMode = 'carta';
     const view = { scale: 1, ox: 0, oy: 0, w: 0, h: 0, dpr: 1, fitted: false };
+    const speech = new SpeechLayer();
     let raf = 0;
     const looks = new Map<string, Appearance>();
     const facings = new Map<string, Facing>();
@@ -335,6 +337,8 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       // Primero los caídos (debajo); después, de arriba abajo, para que los de delante tapen a los de detrás.
       list.sort((a, b) => Number(a.alive) - Number(b.alive) || posOf(a, now).y - posOf(b, now).y);
       const plates: { a: ActorView; x: number; y: number }[] = [];
+      /** Coronilla y medio ancho de la cabeza de cada vivo a la vista: ahí apunta su bocadillo y eso no se tapa. */
+      const heads = new Map<string, { x: number; y: number; r: number }>();
       for (const a of list) {
         const p = posOf(a, now);
         const x = view.ox + (p.x + 0.5) * s;
@@ -390,6 +394,7 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
           celebrating: st.phase === 'terminada' && st.winnerId === a.id,
         });
         if (a.id === st.me || fig >= 40) plates.push({ a, x, y });
+        if (a.alive) heads.set(a.id, { x, y: y - fig * (swimming ? 0.8 : 1.02), r: fig * 0.2 });
       }
 
       obelisk();
@@ -458,6 +463,16 @@ export function MapCanvas({ onCell, apiRef }: { onCell: (x: number, y: number) =
       g.letterSpacing = '0px';
       g.font = '600 11px "Archivo Variable", Archivo, sans-serif';
       for (const { a, x, y } of plates) halo(a.name, x, y + 12, a.id === st.me ? '#ffb07a' : a.alive ? '#f3ece0' : '#8f877b', 'rgba(10,12,13,0.88)');
+
+      // Lo que dicen los bots, por encima de todo (también de la noche y la niebla). Lo más reciente, delante.
+      const real = Date.now();
+      const said: SpeechItem[] = [];
+      for (const [id, line] of Object.entries(st.speech)) {
+        const head = heads.get(id);
+        if (head && real - line.at <= BUBBLE_MS) said.push({ id, text: line.text, at: line.at, hx: head.x, hy: head.y, hr: head.r });
+      }
+      const faces = said.length ? [...heads].map(([id, h]) => ({ id, ...h })) : [];
+      speech.draw(g, said, { holo: isHolo, reduced, bounds: view, heads: faces, now: real });
     };
     raf = requestAnimationFrame(draw);
 

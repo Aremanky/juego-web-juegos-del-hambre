@@ -15,6 +15,7 @@ export * from './game/cosmetics.js';
 export * from './game/names.js';
 export * from './game/avatar.js';
 export * from './game/botFactory.js';
+export * from './game/phrases.js';
 export * from './util/rng.js';
 export * from './schemas/character.js';
 export * from './schemas/room.js';
@@ -22,4 +23,4 @@ export * from './schemas/api.js';
 export * from './schemas/lobby.js';
 export * from './schemas/match.js';
 
-export const APP_VERSION = '0.6.1';
+export const APP_VERSION = '0.6.2';

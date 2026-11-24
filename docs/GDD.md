@@ -1,7 +1,7 @@
 # LOS JUEGOS DE LA CENIZA — Documento de Diseño (GDD)
 
-> Versión 1.2 (fases 6 y 7: IA de bots, arena completa, día y noche, personajes animados) · Fuente de
-> verdad del diseño. Las cifras exactas viven en
+> Versión 1.3 (0.6.2: los bots hablan, su estilo de juego modula la IA y no ven las builds secretas) ·
+> Fuente de verdad del diseño. Las cifras exactas viven en
 > `packages/shared/src/game/` (atributos, habilidades, rasgos, distritos…) y este documento
 > explica el *porqué*. Si una cifra cambia en el código tras pruebas de equilibrio, se anota aquí.
 
@@ -606,19 +606,40 @@ las **mismas intenciones** que un humano por la misma API validada.
   huir, ir a zona segura, atacar, emboscar, trampa, proponer/responder alianza, compartir, traicionar,
   robar, pedir mecenas, seguir/defender aliado.
 - **Combate:** estima la probabilidad de victoria (simulación rápida; más precisa cuanto más difícil) y
-  compara con su umbral de riesgo.
+  compara con su umbral de riesgo. Contra un humano no usa su build, que es secreta: supone la media
+  (Equilibrado) con su distrito, que sí se ve. Contra un bot usa la suya, que es pública en el lobby.
 - **Alianzas:** aceptar = f(confianza, reputación del otro, su Carisma, su amenaza, sociabilidad, paranoia,
   tamaño de la alianza, fase). **Traicionar** = f(pocos vivos, aliado débil con buen botín, desesperación) ×
   traición × (1 − lealtad).
-- **Diálogo:** frases plantilla por personalidad y situación (propuesta, aceptación, rechazo, burla de
-  traición, súplica).
+- **Diálogo** (desde la 0.6.2): frases plantilla por voz y situación, en
+  `packages/shared/src/game/phrases.ts`.
+  - Ocho voces según la personalidad (fiero, prudente, receloso, frío, cordial, taimado, curioso y
+    caótico) y trece situaciones. Ya se dicen las de la arena actual: al estallar la partida, al
+    anochecer y al amanecer, al descubrir una región, al acechar o huir de alguien, al caer otro y al
+    ganar. Las de alianzas, traición y súplica están escritas y se dirán con la fase 8.
+  - Frases cortas (64 caracteres como mucho antes de poner el nombre), sin género gramatical de quien
+    habla ni de a quien se dirige, y sin nada que el bot no haya percibido: ni lugares ni datos de nadie.
+  - Solo hablan los bots: el piloto automático nunca habla por su jugador. Con el chat de partida
+    desactivado no habla nadie.
+  - No saturan: como mucho una frase cada 6 s en toda la partida y, por bot, una cada 20–50 s según su
+    sociabilidad. Medido: unas 4 frases por minuto con 11 bots y unas 7 con 23.
+  - Juego limpio: la frase solo la oye quien ve al bot y, si nombra a alguien, quien también ve a ese
+    alguien (decir «Corre si quieres, Tal» delante de quien no ve a Tal le diría dónde está). Despedir a
+    un caído lo oye cualquiera que vea al bot, porque la arena entera sabe quién ha caído.
+  - Se ve en un bocadillo sobre su cabeza durante 5 s y en el registro, sin avisos emergentes. Los
+    bocadillos no se pisan ni tapan caras: si dos hablan juntos, cada uno se abre hacia su lado.
+  - Hablar no cambia la partida: el azar de las frases sale de tiradas propias, no del azar del mundo.
 - **Dónde piensa cada parte:**
   - La utility AI corre en el servidor. Es barata en CPU y deja la partida reproducible.
-  - Lo que necesite GPU corre en **la GPU del anfitrión de la sala** (WebGPU con transformers.js u ONNX
-    Runtime Web, modelos alojados en la VM):
+  - **Decisión de la 0.6.2: los bots no se reparten entre las GPU de los clientes.** Con 23 bots en el
+    mapa grande cuestan 0,8 ms de media por tick de los 100 disponibles (p95 3,5 ms). La IA son ramas y
+    simulaciones pequeñas, no trabajo de GPU, y moverla a los clientes añadiría ida y vuelta por la red,
+    fallos y validación sin que el juego fuera mejor. Se retoma si con 24 participantes el p95 del tick
+    pasa de 25 ms o la media de 10 ms, o si llega un modelo que no quepa en la CPU del servidor.
+  - Esos modelos son opcionales y corren en **la GPU del anfitrión de la sala** (WebGPU con
+    transformers.js u ONNX Runtime Web, modelos alojados en la VM):
     - un modelo de lenguaje pequeño para que los bots hablen en el chat con su personalidad;
-    - una red de decisión para la dificultad Experto;
-    - la evaluación masiva de combates.
+    - una red de decisión para la dificultad Experto.
   - El anfitrión envía las **mismas intenciones** que enviaría un humano y el servidor las valida igual.
   - Si el anfitrión se desconecta o no tiene GPU, los bots siguen con la utility AI del servidor y las
     frases plantilla. La partida nunca depende del dispositivo del anfitrión.
@@ -629,7 +650,13 @@ las **mismas intenciones** que un humano por la misma API validada.
   Decide entre ir al Obelisco al empezar, explorar regiones, acechar a quien cree poder vencer, huir de quien
   le supera, esconderse y esperar. La misma IA lleva a los humanos desconectados en piloto automático, con
   su estrategia. Con 23 bots en el mapa grande cuesta de media 1 ms por tick (p95 5 ms, de 100 disponibles):
-  no necesita GPU. Comer, beber, fabricar, aliarse, atacar y hablar llegan con la fase 8.
+  no necesita GPU. Comer, beber, fabricar, aliarse y atacar llegan con la fase 8.
+- *Hecho en la 0.6.2:* las frases, el estilo de juego en la IA, estimaciones de combate sin builds
+  secretas y sin tirón al empezar. Las estadísticas de cada luchador se guardan por situación, cada tick
+  tiene un presupuesto de 120 simulaciones entre todos los bots (lo que no cabe se afina en los siguientes
+  con la estimación anterior) y el servidor pone a punto el combate al arrancar. Con 23 bots: 0,8 ms de
+  media por tick, p95 3,5 ms y p99 6,9 ms (antes 1,8, 8,5 y 17,9), y el arranque de cada partida no pasa de
+  16 ms (antes llegaba a 73).
 
 | Personalidad | Agresión | Cautela | Sociab. | Lealtad | Codicia | Curiosidad | Paranoia | Azar |
 |---|---|---|---|---|---|---|---|---|
@@ -644,8 +671,11 @@ las **mismas intenciones** que un humano por la misma API validada.
 | Explorador | .35 | .40 | .50 | .60 | .60 | .95 | .30 | .20 |
 | Impredecible | .50 | .50 | .50 | .50 | .50 | .50 | .50 | .80 |
 
-**Estilo de juego:** Cazador · Superviviente · Saqueador · Diplomático · Trampero · Equilibrado (modula los
-pesos). **Atributos:** se generan equilibrados según personalidad y estilo, con las mismas reglas de puntos.
+**Estilo de juego:** Cazador · Superviviente · Saqueador · Diplomático · Trampero · Equilibrado. Modula los
+pesos: multiplica la puntuación de cada opción entre ×0,75 y ×1,35, así que solo decide cuando dos opciones
+están parejas. El cazador acecha más y se esconde menos; el superviviente huye, se esconde y espera más, y
+va menos al Obelisco; el saqueador va más al Obelisco y explora más; el diplomático acecha menos; el
+trampero se esconde y espera más. El piloto automático de un humano juega equilibrado. **Atributos:** se generan equilibrados según personalidad y estilo, con las mismas reglas de puntos.
 Cualquiera puede editarlos.
 
 **Dificultad = calidad de decisión, no estadísticas:**
@@ -748,7 +778,7 @@ La VM no tiene GPU, y no se usan servicios externos. Todo lo que necesita GPU se
 | Trabajo | Dónde | Si no hay GPU |
 |---|---|---|
 | Generación del mapa que necesite GPU (erosión, texturas, decorado) | Anfitrión de la sala | Mapa con el generador de CPU del servidor y texturas procedurales |
-| IA de bots que necesite GPU (lenguaje, red de decisión Experto, evaluación de combates) | Anfitrión de la sala | Utility AI del servidor y frases plantilla |
+| Modelos opcionales de los bots (lenguaje, red de decisión Experto); la IA de los bots no necesita GPU (§13) | Anfitrión de la sala | Utility AI del servidor y frases plantilla |
 | Crear un personaje desde una foto y generar sus piezas (§5.9) | El propio jugador, en el editor | Solo asignación a piezas existentes; la generación queda pendiente y la hace el anfitrión de la próxima sala, si el jugador lo permite |
 | Retrato estilizado para la interfaz | El propio jugador | Foto sin estilizar |
 | Dibujar el mapa ilustrado y los personajes animados | Cada jugador, su propia pantalla | Calidad baja: menos efectos y animación a menos fotogramas |
@@ -792,4 +822,5 @@ documentará la licencia de cada modelo (uso privado no comercial).
 | Next.js / SSR | No aporta a un juego SPA; Vite + Fastify es más simple |
 | Leaflet / mapas tipo app | Aspecto de app de mapas; PixiJS (WebGL) da sensación de juego, efectos y 60 fps en móvil |
 | Phaser | Demasiado framework para un mapa + UI React; PixiJS basta |
+| Repartir los bots entre las GPU de los clientes, con rescates (0.6.2) | La IA cuesta 0,8 ms por tick de 100 en el servidor y no es trabajo de GPU; en los clientes añadiría red, fallos y validación sin mejorar el juego. Se retoma con el criterio de §13 |
 | PixiJS en la fase 7 (aplazado) | El mapa ilustrado se hornea una vez y por fotograma solo se dibujan una imagen, los personajes y los rótulos: 55 fps en el Chrome sin GPU de las pruebas. Se cambiará el renderizador si en móviles reales hiciera falta, sin tocar motor ni protocolo |

@@ -1,6 +1,6 @@
 # PROJECT_STATUS — Los Juegos de la Ceniza
 
-**Versión:** 0.6.1 · **Última actualización:** 24/11/2026 (sesión 3: fases 4 a 7 y pase visual) · **Avance global: ~69 %**
+**Versión:** 0.6.2 · **Última actualización:** 24/11/2026 (sesión 4: cierre de la fase 6) · **Avance global: ~70 %**
 
 El proyecto es ejecutable: se puede registrar, guardar fotos y personajes, crear salas, invitar por código o
 enlace, preparar la partida con amigos y bots y **jugarla en tiempo real**.
@@ -20,6 +20,18 @@ Desde la 0.6.1 (pase visual):
 - Los objetos del mapa están preparados para sprites pintados con SpriteCook (hojas ya generadas, falta
   descargarlas a `public/map/`).
 
+Desde la 0.6.2 (cierre de la fase 6):
+- **Los bots hablan:** frases cortas según su carácter y lo que pasa (al empezar, al acechar o huir de
+  alguien, al anochecer, al caer otro, al ganar), en un bocadillo sobre su cabeza y en el registro. Solo las
+  oye quien los ve y, con el chat de partida desactivado, se callan.
+- **El estilo de juego cuenta:** el cazador acecha más, el superviviente se esconde y espera, el saqueador
+  corre al Obelisco y explora.
+- **Juego limpio:** contra un humano, un bot ya no usa su build secreta para calcular si le gana.
+- **Sin tirón al empezar:** la IA baja de 1,8 a 0,8 ms de media por tick, y el arranque de cada partida, de
+  hasta 73 ms a 16 ms como mucho.
+- **Los bots no van a las GPU de los clientes:** medido, el servidor va sobrado. El GDD (§13) dice cuándo
+  convendría retomarlo.
+
 Todavía no hay combate en la partida, ni recursos ni eventos (fases 8–9).
 
 Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Aremanky/juego-web-juegos-del-hambre).
@@ -33,7 +45,7 @@ Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Ar
 | 3 | Usuarios, salas, lobby, personajes, fotos persistentes | 11 % | **100 %** | ██████████ |
 | 4 | Motor multijugador y sincronización de partida | 11 % | **100 %** | ██████████ |
 | 5 | Estadísticas, habilidades y reparto de puntos | 6 % | **100 %** | ██████████ |
-| 6 | Bots autónomos (IA en el servidor y en la GPU del anfitrión) | 11 % | **70 %** | ███████░░░ |
+| 6 | Bots autónomos (IA en el servidor y en la GPU del anfitrión) | 11 % | **85 %** | ████████▌░ |
 | 7 | Mapa ilustrado, personajes animados, movimiento y exploración | 14 % | **85 %** | ████████▌░ |
 | 8 | Recursos, combates, alianzas y traiciones | 11 % | 15 % | █▌░░░░░░░░ |
 | 9 | Eventos dinámicos y progresión | 6 % | 5 % | ▌░░░░░░░░░ |
@@ -45,16 +57,18 @@ Los pesos se recalcularon en esta sesión al ampliar el alcance de las fases 7 y
 personalización amplia, personaje desde foto y GPU del anfitrión).
 
 Notas de reparto:
-- **F6 (70 %)**: hecho lo que la fase puede hacer sin los sistemas de la 8:
-  - utility AI con personalidad y dificultad;
-  - percepción igual a la de un humano y memoria que se olvida;
-  - estimación de combates con el motor real;
+- **F6 (85 %)**: hecho todo lo que la fase puede hacer sin los sistemas de la 8:
+  - utility AI con personalidad, dificultad y estilo de juego;
+  - percepción igual a la de un humano, memoria que se olvida y estimaciones sin builds secretas;
+  - estimación de combates con el motor real, sin tirón al empezar;
   - las decisiones de la arena actual;
+  - frases por personalidad y situación, con bocadillos;
   - piloto automático para desconectados.
-  
-  Falta comer, beber, fabricar, aliarse, atacar y traicionar (llegan con esos sistemas en la fase 8) y las
-  frases de los bots. La parte con modelos en la GPU del anfitrión (chat con lenguaje, red para Experto) es
-  opcional: la IA actual cuesta 1 ms por tick en el servidor y no necesita GPU.
+
+  Falta comer, beber, fabricar, aliarse, atacar y traicionar, y decir las frases de esas situaciones (ya
+  escritas): llegan con esos sistemas en la fase 8. Repartir los bots entre las GPU de los clientes se ha
+  descartado con medidas; los modelos en la GPU del anfitrión (chat con lenguaje, red para Experto) siguen
+  siendo opcionales.
 - **F7 (85 %)**: generador completo, regiones y exploración, día y noche con efecto en la visión, mapa
   ilustrado (rehecho en la 0.6.1: bloques por zoom, objetos con luz y sombra, luces de noche), holograma y
   personajes animados con las animaciones de moverse. Faltan las animaciones y estados
@@ -97,7 +111,14 @@ Notas de reparto:
 - Usan las mismas órdenes que un humano, validadas igual.
 - El piloto automático de un humano desconectado usa la misma IA con su estrategia. Con «a cubierto», solo
   busca dónde esconderse.
-- Coste medido con 23 bots en el mapa grande: 1 ms de media por tick, p95 5 ms.
+- El estilo de juego modula sus decisiones: el cazador acecha más, el superviviente se esconde y espera, el
+  saqueador corre al Obelisco y explora.
+- Contra un humano estiman con una build supuesta (la media con su distrito), nunca con la suya secreta.
+- Hablan según su carácter y lo que pasa, en bocadillos sobre su cabeza y en el registro. Solo los oye quien
+  los ve (y, si nombran a alguien, quien también le ve); con el chat de partida desactivado, se callan. Los
+  bocadillos no se pisan ni tapan caras.
+- Coste medido con 23 bots en el mapa grande: 0,8 ms de media por tick, p95 3,5 ms, p99 6,9 ms; arranque de
+  cada partida, 16 ms como mucho.
 
 **Arena completa (fase 7)**
 - Generador por semilla con relieve, lagos, pantanos, 2–3 ríos que bajan de manantiales de montaña,
@@ -131,14 +152,16 @@ Notas de reparto:
 
 | Suite | Resultado | Cubre |
 |---|---|---|
-| Unitarias (`packages/shared`) | **27/27 ✔** | Reglas de personaje, efectos según la situación, desglose idéntico al motor; apariencia elegida, su validación y el camafeo con ella |
-| Motor (`packages/engine`) | **46/46 ✔** | Las 35 anteriores más 11 nuevas. Del generador: determinista, ríos, caminos hasta cada poblado y ruina, nombres únicos, anillo de salida limpio, instantánea con relieve, ríos y caminos, y compatibilidad con la 0.5. Del día y la noche: ciclo, visión nocturna con niebla y avisos. De la exploración: región descubierta solo para quien entra. De la IA: bots que se mueven solos y determinismo, el agresivo al Obelisco y el cauteloso apartándose, huida y acecho, niebla y olvido del Fácil, y 23 bots por debajo de 5 ms por tick |
-| Integración (`apps/server`, PostgreSQL real) | **47/47 ✔** | Todo lo anterior más la arena con bots: instantánea con relieve, lugares y ciclo, bots moviéndose con la IA del servidor, aviso de región privado y noche para todos |
-| Carga (`npm run load`, 30 s) | **✔** | 24 humanos, mapa grande con niebla: tick p95 1,9 ms, respuesta p95 4 ms, 6,8 KB/s por jugador |
-| Extremo a extremo (Chrome real) | **1/1 ✔** | Del registro a la partida en escritorio y móvil, ahora con el mapa nuevo (también de cerca), la pestaña Apariencia, los personajes, el reloj de día, el holograma, la noche y una medida de 41 fps |
-| Compilación y tipos | ✔ | `tsc` en los 4 paquetes, build de servidor y web |
-| Diseño (unslop-ui y detector de Impeccable) | **0 señales** | Todas las pantallas en la 0.6.0; en la 0.6.1, el detector sobre la pestaña Apariencia |
-| Producción | ✔ | Health 0.6.1, SPA y rutas internas (build de servidor y web servido por Fastify) |
+| Unitarias (`packages/shared`) | **34/34 ✔** (0.6.2) | Reglas de personaje, efectos según la situación, desglose idéntico al motor; apariencia elegida, su validación y el camafeo con ella. En la 0.6.2: catálogo de frases completo (todas las voces en todas las situaciones, identificadores únicos, marcadores, longitud) y sesgos de los estilos de juego |
+| Motor (`packages/engine`) | **63/63 ✔** (0.6.2) | En la 0.6.2, 17 nuevas: frases deterministas, solo hablan los bots, silencio con el chat desactivado, separación y enfriamiento, acecho con el nombre, victoria, el mundo se mueve igual con y sin frases, quién oye cada frase con niebla (también si nombra a alguien que no ve), partidas guardadas sin estado de habla, estilos (cazador y superviviente, saqueador y Obelisco), estimación igual contra dos humanos con builds distintas, presupuesto de simulaciones por tick, caché de estadísticas idéntica y calentamiento sin tocar el azar. En la 0.6.1, 11 nuevas sobre las 35 anteriores. Del generador: determinista, ríos, caminos hasta cada poblado y ruina, nombres únicos, anillo de salida limpio, instantánea con relieve, ríos y caminos, y compatibilidad con la 0.5. Del día y la noche: ciclo, visión nocturna con niebla y avisos. De la exploración: región descubierta solo para quien entra. De la IA: bots que se mueven solos y determinismo, el agresivo al Obelisco y el cauteloso apartándose, huida y acecho, niebla y olvido del Fácil, y 23 bots por debajo de 5 ms por tick |
+| Cliente (`apps/web`) | **10/10 ✔** (0.6.2) | Colocación de los bocadillos (no se pisan, no tapan caras, el pico va a su dueño sin atravesar otro, bordes de la pantalla, se queda donde estaba entre dos sitios iguales) y reparto de líneas |
+| Integración (`apps/server`, PostgreSQL real) | **47/47 ✔** (última ejecución: 0.6.1; la 0.6.2 añade el reparto de las frases de los bots) | Todo lo anterior más la arena con bots: instantánea con relieve, lugares y ciclo, bots moviéndose con la IA del servidor, aviso de región privado y noche para todos |
+| Carga (`npm run load`, 30 s) | **✔** (última ejecución: 0.6.1) | 24 humanos, mapa grande con niebla: tick p95 1,9 ms, respuesta p95 4 ms, 6,8 KB/s por jugador |
+| Extremo a extremo (Chrome real) | **1/1 ✔** (última ejecución: 0.6.1) | Del registro a la partida en escritorio y móvil, ahora con el mapa nuevo (también de cerca), la pestaña Apariencia, los personajes, el reloj de día, el holograma, la noche y una medida de 41 fps |
+| Compilación y tipos | ✔ | 0.6.2: `tsc` de `shared` y `engine` sin errores; servidor y web comprobados con declaraciones mínimas de sus dependencias, sin errores nuevos. Build de servidor y web: última en la 0.6.1 |
+| Rendimiento de la IA (23 bots, mapa grande, 5 min) | **✔** (0.6.2) | 0,8 ms de media por tick, p95 3,5 ms, p99 6,9 ms; arranque de cada partida ≤ 16 ms una vez caliente; hash del informe de equilibrio sin cambios |
+| Diseño (unslop-ui y detector de Impeccable) | **0 señales** | Todas las pantallas en la 0.6.0; en la 0.6.1, el detector sobre la pestaña Apariencia; en la 0.6.2, los bocadillos con el suelo de oficio de Impeccable y capturas a 1280×720 y 390×844 de día, de noche y en holograma |
+| Producción | ✔ (última ejecución: 0.6.1) | Health 0.6.1, SPA y rutas internas (build de servidor y web servido por Fastify) |
 
 ## Skills y plugins instalados para el desarrollo
 
@@ -151,12 +174,13 @@ Notas de reparto:
 | anthropic-art-skills | Arte generativo con código |
 | openai-develop-web-game | Ciclo de pruebas con Playwright para el bucle de partida |
 | Context Compactor, Concise Intuitive Answers | Gastar menos contexto en sesiones largas sin perder precisión |
+| Superpowers, UI Design Review y Design (plugins) | Plan por tareas con pruebas primero y revisión del diseño (frases y bocadillos de la 0.6.2) |
 | SpriteCook (plugin) | Hojas de sprites pintados para los objetos del mapa (plan gratuito: 40 créditos, quedan 24) |
 
 ## Funcionalidades pendientes
 
-- **Fase 6:** frases de los bots y, opcional, modelos en la GPU del anfitrión. El resto de decisiones llega con
-  la fase 8.
+- **Fase 6:** comer, beber, fabricar, aliarse, atacar y traicionar, y decir las frases de esas situaciones (ya
+  escritas), con los sistemas de la fase 8. Opcional: modelos en la GPU del anfitrión.
 - **Fase 7:** animaciones y estados de las acciones de la fase 8, cambios del mapa por eventos (fase 9) y PixiJS
   si hiciera falta en móviles reales.
 - **Fase 8:** combate en la partida, medidores de supervivencia, recursos, inventario, fabricación, alianzas y
@@ -174,15 +198,15 @@ Notas de reparto:
   abandonos o desconexiones con la regla «eliminar».
 - Los objetos del mapa se dibujan en vectorial hasta que estén las hojas de SpriteCook en `public/map/`.
 - 41 fps en Chrome sin GPU (antes 55): el escalado filtrado de los bloques del mapa cuesta en software.
-- La IA tiene un pico de unos 60 ms en los primeros ticks de la partida, cuando todos se ven en el anillo.
-  Después va en 1 ms de media.
+- En escenas muy llenas en un móvil (cuatro bocadillos a la vez en poco espacio), un bocadillo puede tapar el
+  nombre y las piernas de otro bot, nunca la cara. La frase sigue en el registro.
 - La prueba de fuerza tiene un margen de ±5 puntos en cada casilla y de ±2 en las medias.
 - El chat de sala durante la partida solo funciona con «Chat durante la partida: Todos».
 - Las fotos HEIC dependen de que el navegador las abra (Safari sí; Chrome en Windows no, y avisa).
 - No hay panel de administración web todavía; existe `npm run admin:promote`.
 - systemd, ufw y Caddy no se han podido ejecutar aquí (el entorno no tiene systemd). Ver `docs/DEPLOYMENT.md` §9.
 
-## Próximos pasos (sesión 4)
+## Próximos pasos (sesión 5)
 
 1. **Fase 8:** combate en la partida con el motor de la fase 5 (atacar, emboscar, huir), medidores de
    supervivencia, búsqueda de recursos con los efectos de actividad ya definidos, inventario y fabricación;
@@ -192,6 +216,5 @@ Notas de reparto:
 
 ## Cómo continuar en la próxima sesión
 
-El código está en GitHub. `main` tiene la fase 4. Las ramas van una encima de otra:
-`fase-5-estadisticas` (#2), `fase-4-cierre` (#3), `fase-6-y-7` (#4) y `pase-visual` (#5). Fusiónalas en
-ese orden. Al empezar la próxima sesión basta con decir que siga desde el repositorio.
+El código está en GitHub. `main` tiene hasta la 0.6.1 (ramas #2 a #5 fusionadas) y la 0.6.2 va en la rama
+`fase-6-cierre`, que sale de `main`. Al empezar la próxima sesión basta con decir que siga desde el repositorio.

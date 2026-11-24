@@ -1,7 +1,8 @@
 # Arquitectura técnica
 
 > Fases 2–7 · Estado: implementada y probada para usuarios, fotos, personajes, salas, lobby, el motor de partida
-> en tiempo real, la capa de reglas de la fase 5, la IA de los bots (fase 6) y la arena completa (fase 7:
+> en tiempo real, la capa de reglas de la fase 5, la IA de los bots (fase 6, con frases y estilos de juego
+> desde la 0.6.2) y la arena completa (fase 7:
 > generador con ríos, caminos y puntos de interés, exploración, día y noche, mapa ilustrado y personajes
 > animados). Inventario, combate en partida, alianzas y eventos se añaden en las fases 8–10.
 
@@ -96,7 +97,7 @@ Todos los eventos cliente → servidor usan confirmación: `Ack<T> = { ok: true,
 | `chat:message`, `notify` | Mensajes y avisos |
 | `match:snapshot` | Mapa (terreno, relieve y puntos de interés), reloj, ciclo de día y noche, personajes visibles y estado de pausa (al entrar, reconectar o cambiar de sala) |
 | `match:frame` | Fotograma incremental a 5 Hz: solo los personajes que han cambiado para ese destinatario |
-| `match:event` | Avisos de la partida (fases, caídas, pausas, conexiones, anochecer, amanecer, final). «Has llegado a…» solo se envía a quien descubre la región |
+| `match:event` | Avisos de la partida (fases, caídas, pausas, conexiones, anochecer, amanecer, final). «Has llegado a…» solo se envía a quien descubre la región. Las frases de los bots (`kind: 'dice'`, con `actorId` y `say`) solo llegan a quien ve al bot y, si nombran a alguien, también le ve (`hearsLine`) |
 
 Límite por socket: cubo de 25 fichas (10/s) y chat 5 (1,2/s). Carga máxima por mensaje: 256 KB.
 
@@ -141,7 +142,8 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
 | Nivel | Dónde | Cómo |
 |---|---|---|
 | Unitarias | `packages/shared/src/**/*.test.ts` | `npm test -w @ceniza/shared` |
-| Motor (determinismo, rutas, pausa, niebla, instantáneas, combate, equilibrio, estadísticas en partida, generador, día y noche, exploración, IA) | `packages/engine/src/*.test.ts` | `npm test -w @ceniza/engine` |
+| Motor (determinismo, rutas, pausa, niebla, instantáneas, combate, equilibrio, estadísticas en partida, generador, día y noche, exploración, IA, frases de los bots, estilos de juego, presupuesto de simulaciones) | `packages/engine/src/*.test.ts` | `npm test -w @ceniza/engine` |
+| Cliente (colocación de los bocadillos y reparto de líneas) | `apps/web/src/**/*.test.ts` | `npm test -w @ceniza/web` |
 | Informe de equilibrio | `docs/BALANCE.md` | `npm run balance` (400 enfrentamientos por pareja y escenario) |
 | Carga (24 humanos, mapa grande, niebla) | `apps/server/test/load.test.ts` → `docs/LOAD.md` | `npm run load` (30 s; con `npm test` dura 10 s) |
 | Integración (BD real + varios sockets) | `apps/server/test` | `npm test -w @ceniza/server` (usa `ceniza_test`) |
@@ -224,6 +226,11 @@ en un Web Worker.
 
 ## Cómputo en la GPU del anfitrión (plan, fases 6–10)
 
+**La IA de los bots no lo usa** (decidido en la 0.6.2, GDD §13). Medido con 23 bots en el mapa grande: 0,8 ms
+de media por tick de 100, p95 3,5 ms. Repartirla entre las GPU de los clientes añadiría ida y vuelta por la
+red, fallos y validación sin mejorar el juego. Se retoma si con 24 participantes el p95 del tick pasa de
+25 ms o la media de 10 ms, o si llega un modelo que no quepa en la CPU del servidor.
+
 La VM no tiene GPU. Lo que la necesite (IA de bots con modelos, pasos de generación del mapa, generar piezas
 de personaje desde una foto) se ejecuta en el navegador del **anfitrión de la sala** con WebGPU, o en el del
 propio jugador cuando el trabajo es suyo (el editor). Diseño:
@@ -259,15 +266,40 @@ según su dificultad (de 0,8 a 2,5 s, escalonado) dentro del tick del servidor:
 2. **Estimación de combate** (`estimateOdds`): simulaciones con el motor de combate de la fase 5 (de 4 a 30
    según la dificultad, con terreno en Difícil y Experto) y el error de su dificultad. Usa un PRNG propio por
    pareja y una caché de 30–45 s escalonada, así no toca el azar del mundo ni produce picos.
+   - Juego limpio (`knownBuild`): contra un humano se supone la build media (Equilibrado) con su distrito,
+     porque la suya es secreta; contra un bot se usa la suya, que es pública en el lobby.
+   - Presupuesto: como mucho 120 simulaciones por tick entre todos los bots (`SIM_BUDGET_PER_TICK`). Si se
+     agota, vale la estimación anterior (o 0,5) durante 2 s y se afina en los ticks siguientes.
+   - `fighterStats` guarda las estadísticas de cada luchador por situación (si ya atacó y qué umbrales de
+     salud cruza), con el mismo resultado: el hash del informe de equilibrio no cambia. El servidor pone a
+     punto el combate al arrancar (`warmUpCombat`, unos 150 ms).
 3. **Opciones** (utility AI): ir al Obelisco en el primer minuto, explorar la región sin descubrir más
    cercana, acechar, huir hacia cobertura, esconderse y esperar. Cada una es un producto de consideraciones de
    0 a 1 con compensación; se suma la inercia de lo que ya hace y el ruido de su dificultad y personalidad.
+   El estilo de juego multiplica cada puntuación (`PLAYSTYLES[k].actionBias`, entre ×0,75 y ×1,35).
 4. **Acción**: `moveIntent`, la misma intención que valida el motor para un humano, en tramos de 40 casillas
    como mucho. Solo se da una orden nueva si cambia el plan o el destino.
+5. **Frases** (`speech.ts`, catálogo en `packages/shared/src/game/phrases.ts`): un disparador propone una
+   frase (`want`: al estallar la partida, al anochecer y amanecer, al descubrir una región, al caer otro, y
+   desde `think` al empezar a acechar o huir de alguien). El bot la dice al pensar (`trySpeak`) si sigue
+   vigente y han pasado su enfriamiento (20–50 s según sociabilidad) y la separación de la partida (6 s); el
+   ganador la dice al momento (`victoryLine`). El motor devuelve un evento `dice`; las tiradas salen de un hash
+   de semilla, bot y tick, así que hablar no cambia la partida. Solo hablan los bots y nadie con
+   `rules.speech === false` (chat de partida desactivado).
+   - Servidor: `MatchRuntime` envía cada frase solo a quien la oye (`hearsLine`: ve al bot y, si la frase
+     nombra a alguien, también a ese alguien; despedir a un caído no delata nada) y la guarda en
+     `match_events`.
+   - Cliente: la tienda guarda la última frase de cada bot; `MapCanvas` dibuja los bocadillos encima de la
+     noche y la niebla con `SpeechLayer` (`art/speech.ts`), que mide, reparte las líneas como un rotulista y
+     desliza el bocadillo cuando tiene que apartarse. Dónde va cada uno lo decide `layoutSpeech`
+     (`art/speechLayout.ts`), sin lienzo: encima de la cabeza; si dos hablan juntos, cada uno hacia su lado;
+     si no hay hueco, al costado o subido con el pico limpio. Nunca pisa otro bocadillo si hay sitio, no tapa
+     caras y el pico no atraviesa nada. Con hasta cuatro a la vez prueba todos los órdenes de colocación.
 
-Coste medido (23 bots, mapa grande, 5 min de partida): 1 ms de media por tick, p95 5 ms y p99 9 ms; el pico de
-unos 60 ms ocurre una vez, en los primeros ticks. El estado de la IA va en la instantánea, así que tras un
-reinicio los bots siguen con su memoria.
+Coste medido (23 bots, mapa grande, 5 min de partida, 0.6.2): 0,8 ms de media por tick, p95 3,5 ms y p99
+6,9 ms; el arranque de cada partida no pasa de 16 ms una vez caliente (en la 0.6.1: 1,8 ms, 8,5 ms, 17,9 ms y
+hasta 73 ms al empezar). El estado de la IA y el de las frases van en la instantánea, así que tras un reinicio
+los bots siguen con su memoria.
 
 ## Arena (fase 7)
 

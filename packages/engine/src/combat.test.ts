@@ -1,10 +1,11 @@
-import { ARCHETYPES, Rng, WEAPONS, computeDerived, type DerivedInput } from '@ceniza/shared';
+import { ARCHETYPES, Rng, WEAPONS, computeDerived, situationalStats, type DerivedInput, type Situation } from '@ceniza/shared';
 import { describe, expect, it } from 'vitest';
-import { ARCHETYPE_CONTENDERS, runBalance, runMatchups, SCENARIOS } from './balance.js';
+import { ARCHETYPE_CONTENDERS, runBalance, runMatchups, SCENARIOS, warmUpCombat } from './balance.js';
 import {
   createFighter,
   detectionChance,
   fight,
+  fighterStats,
   fleeChance,
   hitChance,
   resolveRound,
@@ -138,5 +139,46 @@ describe('simulador de equilibrio', () => {
     const m = runMatchups(ARCHETYPE_CONTENDERS[0], ARCHETYPE_CONTENDERS, 20);
     expect(m).toHaveLength(SCENARIOS.length);
     for (const row of m) for (const v of row) expect(v).toBeGreaterThanOrEqual(0), expect(v).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('estadísticas del luchador', () => {
+  it('fighterStats con caché da lo mismo que situationalStats', () => {
+    // Rasgos y habilidades que dependen de la salud, el primer ataque, la carrera y la distancia.
+    const a: DerivedInput = { ...arch('cazador'), trait: 'sangreFria', abilities: ['carrera', 'ojoCertero'], district: 1 };
+    const b: DerivedInput = { ...arch('titan'), trait: 'temerario', abilities: ['resistenciaDolor', 'golpeBrutal'], district: 7 };
+    const c = startCombat(
+      createFighter({ id: 'a', name: 'a', build: a, weapon: WEAPONS.honda, terrain: 'bosque' }),
+      createFighter({ id: 'b', name: 'b', build: b, weapon: WEAPONS.hacha, terrain: 'pradera' }),
+      { distance: 'lejos' },
+      new Rng('cache'),
+    );
+    let checked = 0;
+    for (const i of [0, 1] as const) {
+      const f = c.fighters[i];
+      for (let hp = f.maxHp; hp >= 0; hp -= 7) {
+        f.hp = hp;
+        for (const attacked of [false, true]) {
+          f.attacked = attacked;
+          for (const extra of [undefined, {}, { sprinting: true }] as (Situation | undefined)[]) {
+            const sit: Situation = { terrain: f.terrain, allies: f.allies, hpFraction: f.hp / f.maxHp, attack: f.weapon.range, weaponTags: f.weapon.tags, firstAttack: !f.attacked, ...extra };
+            // Dos veces: la segunda sale de la caché.
+            expect(fighterStats(c, i, extra)).toEqual(situationalStats(f.build, sit, f.base).stats);
+            expect(fighterStats(c, i, extra)).toEqual(situationalStats(f.build, sit, f.base).stats);
+            checked++;
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(40);
+  });
+});
+
+describe('arranque del servidor', () => {
+  it('warmUpCombat prepara el combate sin tocar ningún azar compartido', () => {
+    const [you] = ARCHETYPE_CONTENDERS;
+    const before = runMatchups(you, ARCHETYPE_CONTENDERS, 4, 'antes');
+    expect(warmUpCombat()).toBeGreaterThan(0);
+    expect(runMatchups(you, ARCHETYPE_CONTENDERS, 4, 'antes')).toEqual(before);
   });
 });

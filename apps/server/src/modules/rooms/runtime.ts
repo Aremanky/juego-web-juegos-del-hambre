@@ -848,6 +848,8 @@ export class RoomRuntime {
         countdownMs: t.countdownMs,
         dayMs: t.dayMs ?? DAY_NIGHT_BY_PACE[this.config.pace].dayMs,
         nightMs: t.nightMs ?? DAY_NIGHT_BY_PACE[this.config.pace].nightMs,
+        // Con el chat de partida desactivado no habla nadie, tampoco los bots.
+        speech: this.config.matchChat !== 'desactivado',
       },
     });
     for (const a of world.actors) if (a.kind === 'human' && a.userId && !this.isOnline(a.userId)) setConnected(world, a.id, false);

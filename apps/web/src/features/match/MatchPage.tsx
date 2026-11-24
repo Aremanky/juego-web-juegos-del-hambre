@@ -183,9 +183,15 @@ export function MatchPage({ lobby }: { lobby: LobbyState }) {
           <h2>Lo que ha pasado</h2>
           {m.log.length ? (
             <ol className="match-log">
-              {[...m.log].reverse().slice(0, 14).map((e, i) => (
-                <li key={`${e.at}-${i}`}>{e.text}</li>
-              ))}
+              {[...m.log].reverse().slice(0, 14).map((e, i) =>
+                e.kind === 'dice' && e.say ? (
+                  <li key={`${e.at}-${i}`} className="log-say">
+                    <span className="log-who">{(e.actorId && m.actors[e.actorId]?.name) || e.text.split(':')[0]}</span> «{e.say}»
+                  </li>
+                ) : (
+                  <li key={`${e.at}-${i}`}>{e.text}</li>
+                ),
+              )}
             </ol>
           ) : (
             <p className="small faint">Todavía nada. Los avisos de la partida aparecerán aquí.</p>

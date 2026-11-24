@@ -7,6 +7,7 @@ import {
   castVote,
   computeView,
   eliminate,
+  hearsLine,
   moveIntent,
   pauseDTO,
   pauseForRestart,
@@ -275,6 +276,22 @@ export class MatchRuntime {
         return 'Cae la noche: se ve menos y es más fácil esconderse.';
       case 'amanece':
         return 'Amanece en la arena.';
+      case 'dice':
+        return null; // se reparte aparte, solo a quien oye al bot (`say`)
+    }
+  }
+
+  /**
+   * Frase de un bot: solo la reciben quienes lo ven, con la misma regla que las posiciones (niebla), y si
+   * nombra a alguien, quienes también ven a ese alguien (`hearsLine`).
+   */
+  private say(e: Extract<WorldEvent, { type: 'dice' }>, now: number) {
+    const dto: MatchEventDTO = { kind: 'dice', text: `${this.name(e.actorId)}: «${e.text}»`, at: now, actorId: e.actorId, say: e.text };
+    const hears = new Map<string, boolean>();
+    for (const [socketId, userId] of this.host.sockets()) {
+      let ok = hears.get(userId);
+      if (ok === undefined) hears.set(userId, (ok = hearsLine(this.world, userId, e)));
+      if (ok) this.deps.io.emitToSocket(socketId, 'match:event', dto);
     }
   }
 
@@ -286,6 +303,10 @@ export class MatchRuntime {
     this.record(ev);
     const now = Date.now();
     for (const e of ev) {
+      if (e.type === 'dice') {
+        this.say(e, now);
+        continue;
+      }
       const text = this.text(e);
       if (text) {
         const dto: MatchEventDTO = { kind: e.type, text, at: now };

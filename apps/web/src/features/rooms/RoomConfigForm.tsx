@@ -95,7 +95,7 @@ export function RoomConfigForm({ value: c, onChange, readOnly, minParticipants =
         <Row label="Tamaño máximo de alianza">
           <Stepper label="miembros por alianza" value={c.allianceMaxSize} min={2} max={6} onChange={(v) => onChange({ allianceMaxSize: v })} disabled={d} />
         </Row>
-        <Row label="Chat durante la partida">
+        <Row label="Chat durante la partida" hint="Los bots hablan en bocadillos sobre el mapa. Con «Desactivado» también se callan ellos.">
           <Segmented
             label="Chat de partida"
             value={c.matchChat}

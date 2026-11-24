@@ -58,21 +58,27 @@ export const PERSONALITIES: Record<PersonalityKey, PersonalityDef> = {
 export const PLAYSTYLE_KEYS = ['cazador', 'superviviente', 'saqueador', 'diplomatico', 'trampero', 'equilibrado'] as const;
 export type PlaystyleKey = (typeof PLAYSTYLE_KEYS)[number];
 
+/** Lo que la IA de un bot puede decidir hoy (GDD §13). Comer, fabricar o aliarse llegan con la fase 8. */
+export const BOT_ACTION_KEYS = ['obelisco', 'explorar', 'acechar', 'huir', 'esconderse', 'esperar'] as const;
+export type BotActionKey = (typeof BOT_ACTION_KEYS)[number];
+
 export interface PlaystyleDef {
   key: PlaystyleKey;
   name: string;
   description: string;
   attrBias: Partial<Record<AttributeKey, number>>;
   preferredAbilities: AbilityKey[];
+  /** Multiplica la puntuación de cada acción en la IA del bot: el estilo modula los pesos (GDD §13). */
+  actionBias: Partial<Record<BotActionKey, number>>;
 }
 
 export const PLAYSTYLES: Record<PlaystyleKey, PlaystyleDef> = {
-  cazador: { key: 'cazador', name: 'Cazador', description: 'Prioriza encontrar y eliminar rivales.', attrBias: { potencia: 2, instinto: 1.5, reflejos: 1 }, preferredAbilities: ['rastrear', 'golpeBrutal', 'ojoCertero', 'carrera'] },
-  superviviente: { key: 'superviviente', name: 'Superviviente', description: 'Evita combates y aguanta hasta el final.', attrBias: { aguante: 2, sigilo: 1.5, instinto: 1 }, preferredAbilities: ['ultimoAliento', 'forrajeo', 'camuflaje', 'resistenciaDolor'] },
-  saqueador: { key: 'saqueador', name: 'Saqueador', description: 'Va a por el mejor botín y los suministros.', attrBias: { reflejos: 1.5, potencia: 1, instinto: 1.5 }, preferredAbilities: ['carrera', 'forrajeo', 'escalada'] },
-  diplomatico: { key: 'diplomatico', name: 'Diplomático', description: 'Teje alianzas y pactos.', attrBias: { carisma: 2.5, aguante: 1 }, preferredAbilities: ['labia', 'showman', 'intimidar'] },
-  trampero: { key: 'trampero', name: 'Trampero', description: 'Emboscadas, trampas y señuelos.', attrBias: { ingenio: 2.5, sigilo: 1.5 }, preferredAbilities: ['trampero', 'senuelo', 'camuflaje'] },
-  equilibrado: { key: 'equilibrado', name: 'Equilibrado', description: 'Se adapta a lo que ofrezca la arena.', attrBias: {}, preferredAbilities: ['primerosAuxilios', 'forrajeo', 'carrera'] },
+  cazador: { key: 'cazador', name: 'Cazador', description: 'Prioriza encontrar y eliminar rivales.', attrBias: { potencia: 2, instinto: 1.5, reflejos: 1 }, preferredAbilities: ['rastrear', 'golpeBrutal', 'ojoCertero', 'carrera'], actionBias: { acechar: 1.3, huir: 0.9, esconderse: 0.85 } },
+  superviviente: { key: 'superviviente', name: 'Superviviente', description: 'Evita combates y aguanta hasta el final.', attrBias: { aguante: 2, sigilo: 1.5, instinto: 1 }, preferredAbilities: ['ultimoAliento', 'forrajeo', 'camuflaje', 'resistenciaDolor'], actionBias: { huir: 1.2, esconderse: 1.3, esperar: 1.25, acechar: 0.75, obelisco: 0.75 } },
+  saqueador: { key: 'saqueador', name: 'Saqueador', description: 'Va a por el mejor botín y los suministros.', attrBias: { reflejos: 1.5, potencia: 1, instinto: 1.5 }, preferredAbilities: ['carrera', 'forrajeo', 'escalada'], actionBias: { obelisco: 1.35, explorar: 1.15, acechar: 0.9 } },
+  diplomatico: { key: 'diplomatico', name: 'Diplomático', description: 'Teje alianzas y pactos.', attrBias: { carisma: 2.5, aguante: 1 }, preferredAbilities: ['labia', 'showman', 'intimidar'], actionBias: { acechar: 0.8, explorar: 1.1, huir: 1.05 } },
+  trampero: { key: 'trampero', name: 'Trampero', description: 'Emboscadas, trampas y señuelos.', attrBias: { ingenio: 2.5, sigilo: 1.5 }, preferredAbilities: ['trampero', 'senuelo', 'camuflaje'], actionBias: { esconderse: 1.25, esperar: 1.25, obelisco: 0.85, acechar: 1.05 } },
+  equilibrado: { key: 'equilibrado', name: 'Equilibrado', description: 'Se adapta a lo que ofrezca la arena.', attrBias: {}, preferredAbilities: ['primerosAuxilios', 'forrajeo', 'carrera'], actionBias: {} },
 };
 
 export const DIFFICULTY_KEYS = ['facil', 'normal', 'dificil', 'experto'] as const;

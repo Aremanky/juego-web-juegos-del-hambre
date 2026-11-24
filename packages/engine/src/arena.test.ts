@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { ARCHETYPES, dayPhase, defaultCharacter, type BotSettings, type Character } from '@ceniza/shared';
+import { ARCHETYPES, DIFFICULTIES, dayPhase, defaultCharacter, type BotSettings, type Character } from '@ceniza/shared';
 import {
+  SIM_BUDGET_PER_TICK,
   T,
   actorById,
+  aiStats,
   computeView,
   createWorld,
+  estimateOdds,
   generateMap,
   hashWorld,
   perceive,
@@ -222,6 +225,59 @@ describe('IA de los bots (fase 6)', () => {
     w.t += 61_000;
     think(w, b);
     expect(b.mind!.seen.titan).toBeUndefined();
+  });
+
+  it('contra humanos estima sin ver su build secreta', () => {
+    const experto = DIFFICULTIES.experto;
+    const odds = (arch: string, kind: 'human' | 'bot') => {
+      const rival = kind === 'human' ? human('h', arch, 5) : bot('h', arch, {}, 5);
+      const w = start([rival, bot('b', 'cazador', { personality: 'agresivo', difficulty: 'experto' }, 6)]);
+      const b = actorById(w, 'b')!;
+      b.mind = { action: 'esperar', goal: null, targetId: null, since: w.t, seen: {}, odds: {} };
+      return estimateOdds(w, b, actorById(w, 'h')!, experto);
+    };
+    // Del humano solo se sabe lo público (su distrito): un titán y un diplomático le parecen iguales.
+    expect(odds('titan', 'human')).toBe(odds('diplomatico', 'human'));
+    // Los bots se ven completos en el lobby, así que contra ellos sí cuenta su build.
+    expect(odds('titan', 'bot')).not.toBe(odds('diplomatico', 'bot'));
+  });
+
+  it('el cazador acecha y el superviviente se aparta ante la misma presa', () => {
+    // Dos mundos idénticos salvo el estilo del bot que ve a una presa débil (bot, así su build es pública).
+    const action = (playstyle: BotSettings['playstyle']) => {
+      const w = start([bot('cazadora', 'cazador', { personality: 'estratega', difficulty: 'experto', playstyle }, 3), bot('presa', 'diplomatico', { personality: 'pacifico' }, 4)]);
+      run(w, 61_000); // pasada la carrera al Obelisco
+      const c = w.map.center;
+      Object.assign(actorById(w, 'presa')!, { x: c.x, y: c.y, route: null });
+      Object.assign(actorById(w, 'cazadora')!, { x: c.x + 3, y: c.y, route: null });
+      const a = actorById(w, 'cazadora')!;
+      think(w, a);
+      return a.mind!.action;
+    };
+    expect(action('cazador')).toBe('acechar');
+    expect(action('superviviente')).not.toBe('acechar');
+  });
+
+  it('el saqueador corre al Obelisco y el superviviente no', () => {
+    const dist = (playstyle: BotSettings['playstyle']) => {
+      // Una personalidad que duda entre el Obelisco y explorar: ahí es donde el estilo decide.
+      const w = start([human('h'), bot('b', 'explorador', { personality: 'manipulador', difficulty: 'experto', playstyle }, 3)]);
+      run(w, 6_000);
+      const p = positionAt(actorById(w, 'b')!, w.t);
+      return Math.hypot(p.x - w.map.center.x, p.y - w.map.center.y);
+    };
+    expect(dist('saqueador')).toBeLessThan(dist('superviviente'));
+  });
+
+  it('ningún tick gasta más simulaciones que el presupuesto', () => {
+    const personalities = ['agresivo', 'cauteloso', 'estratega', 'pacifico', 'explorador', 'impredecible'] as const;
+    const actors = [human('h'), ...Array.from({ length: 23 }, (_, i) => bot(`b${i}`, ARCHETYPES[i % 8].key, { personality: personalities[i % 6], difficulty: (['facil', 'normal', 'dificil', 'experto'] as const)[i % 4] }, (i % 12) + 1))];
+    const w = start(actors, {}, 'carga', 128);
+    Object.assign(aiStats, { ticks: 0, maxSimsInTick: 0, provisional: 0 });
+    run(w, 30_000);
+    expect(aiStats.ticks).toBeGreaterThan(0);
+    expect(aiStats.maxSimsInTick).toBeGreaterThan(0);
+    expect(aiStats.maxSimsInTick).toBeLessThanOrEqual(SIM_BUDGET_PER_TICK);
   });
 
   it('23 bots en el mapa grande cuestan poco por tick', () => {

@@ -19,9 +19,11 @@ import {
   type Look,
   type Portrait,
   type RngState,
+  type SpeechSituation,
   type VoteDTO,
 } from '@ceniza/shared';
-import { think, type BotMind } from './ai.js';
+import { beginTickBudget, endTickBudget, think, type BotMind } from './ai.js';
+import { onElimination, speechTriggers, victoryLine, type TalkState } from './speech.js';
 import { generateMap, heightsFromTiles, inBounds, regionAt, spawnRing, tileAt, type Cell, type GameMap, type Poi } from './map.js';
 import { findPath } from './path.js';
 import { buildRoute, nextStop, routeEnd, routeEndTime, routeGlimpse, routePosition, truncateAfterCurrent, type Route } from './route.js';
@@ -80,6 +82,8 @@ export interface ActorState {
   strategy?: Character['strategy'];
   /** Estado de la IA (bots y piloto automático). */
   mind?: BotMind | null;
+  /** Lo que un bot quiere decir y cuándo habló por última vez. Falta en partidas de la 0.6.1. */
+  talk?: TalkState | null;
   /** Casilla donde empieza la ruta en curso, o donde está si no se mueve. */
   x: number;
   y: number;
@@ -106,6 +110,8 @@ export interface WorldRules {
   /** Ciclo de día y noche (por ritmo de sala). Sin él: 8 + 4 min. */
   dayMs?: number;
   nightMs?: number;
+  /** Los bots hablan (false con el chat de partida desactivado). Sin él: sí. */
+  speech?: boolean;
 }
 
 export interface PauseState {
@@ -140,6 +146,8 @@ export interface World {
   winnerId: string | null;
   /** Es de noche ahora mismo (para avisar al cambiar). */
   night?: boolean;
+  /** Cuándo habló un bot por última vez en la partida (separación entre frases). */
+  speechAt?: number;
 }
 
 export type WorldEvent =
@@ -152,7 +160,8 @@ export type WorldEvent =
   | { type: 'conexion'; actorId: string; connected: boolean }
   | { type: 'descubre'; actorId: string; region: number }
   | { type: 'anochece' }
-  | { type: 'amanece' };
+  | { type: 'amanece' }
+  | { type: 'dice'; actorId: string; situation: SpeechSituation; line: string; text: string; to: string | null };
 
 export class IntentError extends Error {}
 
@@ -284,6 +293,18 @@ export function tick(w: World, now: number, eligible: string[]): WorldEvent[] {
     w.night = night;
     ev.push({ type: night ? 'anochece' : 'amanece' });
   }
+  beginTickBudget();
+  try {
+    actorsStep(w, ev);
+  } finally {
+    endTickBudget();
+  }
+  speechTriggers(w, ev);
+  return ev;
+}
+
+/** Avance de cada participante en un tick: llegadas, regiones, desconexiones y decisiones de la IA. */
+function actorsStep(w: World, ev: WorldEvent[]): void {
   for (const a of w.actors) {
     if (!a.alive) continue;
     if (a.route && routeEndTime(a.route) <= w.t) {
@@ -305,9 +326,8 @@ export function tick(w: World, now: number, eligible: string[]): WorldEvent[] {
       if ((w.phase as MatchPhase) === 'terminada') break;
       continue;
     }
-    if ((a.control === 'piloto' || a.control === 'protegido') && w.t >= a.nextThinkAt) think(w, a);
+    if ((a.control === 'piloto' || a.control === 'protegido') && w.t >= a.nextThinkAt) ev.push(...think(w, a));
   }
-  return ev;
 }
 
 // ------------------------------------------------------------------ intenciones
@@ -370,6 +390,7 @@ export function eliminate(w: World, actorId: string, cause: EliminationCause): W
   a.route = null;
   const ev: WorldEvent[] = [{ type: 'eliminado', actorId, cause, place }];
   const remaining = w.actors.filter((x) => x.alive);
+  if (remaining.length > 1) onElimination(w, actorId);
   if (remaining.length <= 1) {
     const winner = remaining[0] ?? null;
     if (winner) {
@@ -385,6 +406,8 @@ export function eliminate(w: World, actorId: string, cause: EliminationCause): W
     w.vote = null;
     w.paused = null;
     ev.push({ type: 'fase', phase: 'terminada' }, { type: 'fin', winnerId: w.winnerId });
+    const cheer = winner ? victoryLine(w, winner) : null;
+    if (cheer) ev.push(cheer);
   }
   return ev;
 }

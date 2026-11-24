@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { LobbyState, MatchEventDTO, MatchSnapshot } from '@ceniza/shared';
-import { positionAt } from '@ceniza/engine';
+import { positionAt, want } from '@ceniza/engine';
 import { api, character, connect, register, resetDatabase, sleep, startServer, type Client, type TestServer, type TestUser } from './helpers';
 
 const TIMINGS = { lobbyCountdownMs: 300, presentationMs: 300, countdownMs: 300, snapshotMs: 10_000, dayMs: 4_000, nightMs: 2_000 };
@@ -92,5 +92,29 @@ describe('arena de la fase 7 con bots de la fase 6', () => {
       await sleep(100);
     }
     expect(events.get('ana')!.some((e) => e.kind === 'anochece')).toBe(true);
+  });
+
+  it('las frases de los bots solo llegan a quien los ve', async () => {
+    const w = srv.ctx.roomManager.get(roomId)!.match!.world;
+    const b = w.actors.find((a) => a.kind === 'bot' && a.alive)!;
+    const c = w.map.center;
+    // Con niebla: Ana junto al bot, Beto lejos.
+    Object.assign(b, { x: c.x, y: c.y, route: null });
+    Object.assign(w.actors.find((a) => a.userId === ana.id)!, { x: c.x + 2, y: c.y, route: null });
+    Object.assign(w.actors.find((a) => a.userId === beto.id)!, { x: c.x + 40, y: c.y, route: null });
+    events.get('ana')!.length = 0;
+    events.get('beto')!.length = 0;
+    w.speechAt = undefined;
+    if (b.talk) b.talk.saidAt = -1e9;
+    want(w, b, 'region', null, 1);
+    const end = Date.now() + 10_000;
+    while (!events.get('ana')!.some((e) => e.kind === 'dice' && e.actorId === b.id)) {
+      if (Date.now() > end) throw new Error('no llega la frase del bot');
+      await sleep(50);
+    }
+    const said = events.get('ana')!.find((e) => e.kind === 'dice' && e.actorId === b.id)!;
+    expect(said.say).toBeTruthy();
+    expect(said.text).toBe(`${b.name}: «${said.say}»`);
+    expect(events.get('beto')!.some((e) => e.kind === 'dice' && e.actorId === b.id)).toBe(false);
   });
 });

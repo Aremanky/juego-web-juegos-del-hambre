@@ -12,13 +12,14 @@
  * de quien le supera, esconderse y esperar. Comer, beber, fabricar, aliarse o atacar llegan con los
  * sistemas de la fase 8, sobre esta misma estructura.
  */
-import { DIFFICULTIES, PERSONALITIES, Rng, hashString, TERRAIN_KINDS, TERRAIN_RULES, type DifficultyDef, type DifficultyKey, type PersonalityKey, type PersonalityWeights } from '@ceniza/shared';
+import { ARCHETYPES, DIFFICULTIES, PERSONALITIES, PLAYSTYLES, Rng, hashString, TERRAIN_KINDS, TERRAIN_RULES, type BotActionKey, type DerivedInput, type DifficultyDef, type DifficultyKey, type PersonalityKey, type PersonalityWeights, type PlaystyleKey } from '@ceniza/shared';
 import { SCENARIOS, type Contender } from './balance.js';
 import { inBounds, regionAt, tileAt, type Cell } from './map.js';
 import { T } from './terrain.js';
-import { IntentError, actorById, moveIntent, positionAt, visionAt, type ActorState, type World } from './world.js';
+import { trySpeak, want } from './speech.js';
+import { IntentError, actorById, moveIntent, positionAt, visionAt, type ActorState, type World, type WorldEvent } from './world.js';
 
-export type BotAction = 'obelisco' | 'explorar' | 'acechar' | 'huir' | 'esconderse' | 'esperar';
+export type BotAction = BotActionKey;
 
 export const BOT_ACTION_LABEL: Record<BotAction, string> = {
   obelisco: 'va al Obelisco',
@@ -58,6 +59,33 @@ const ODDS_TTL_MS = 30_000;
 const MAX_LEG = 40;
 const ODDS_RUNS: Record<DifficultyKey, number> = { facil: 4, normal: 10, dificil: 20, experto: 30 };
 
+/**
+ * Simulaciones de combate como mucho por tick entre todos los bots. Al empezar, todos se ven en el anillo
+ * y querrían estimar a la vez: con el presupuesto, lo que no cabe en un tick se afina en los siguientes.
+ */
+export const SIM_BUDGET_PER_TICK = 120;
+/** Vida de una estimación provisional (sin presupuesto): se vuelve a intentar enseguida. */
+const PROVISIONAL_TTL_MS = 2_000;
+
+/** Contadores de la IA, para las pruebas y el diagnóstico. */
+export const aiStats = { ticks: 0, maxSimsInTick: 0, provisional: 0 };
+
+let simBudget = Number.POSITIVE_INFINITY;
+let simsThisTick = 0;
+
+/** Abre el presupuesto de simulaciones de un tick. Fuera de un tick no hay límite. */
+export function beginTickBudget(): void {
+  simBudget = SIM_BUDGET_PER_TICK;
+  simsThisTick = 0;
+}
+
+export function endTickBudget(): void {
+  aiStats.ticks++;
+  if (simsThisTick > aiStats.maxSimsInTick) aiStats.maxSimsInTick = simsThisTick;
+  simBudget = Number.POSITIVE_INFINITY;
+  simsThisTick = 0;
+}
+
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /**
@@ -91,6 +119,11 @@ export function difficultyOf(a: ActorState): DifficultyKey {
   return a.bot?.difficulty ?? 'normal';
 }
 
+/** Estilo de juego: el de un bot; el piloto automático de un humano juega equilibrado. */
+export function playstyleOf(a: ActorState): PlaystyleKey {
+  return a.bot?.playstyle ?? 'equilibrado';
+}
+
 const coverOf = (w: World, x: number, y: number) => TERRAIN_RULES[TERRAIN_KINDS[tileAt(w.map, x, y)] ?? 'pradera'].cover;
 const walkable = (w: World, x: number, y: number) => inBounds(w.map, x, y) && tileAt(w.map, x, y) !== T.AGUA && tileAt(w.map, x, y) !== T.CUMBRE;
 
@@ -109,6 +142,19 @@ export function perceive(w: World, a: ActorState): Seen[] {
   return out;
 }
 
+const PRESUMED = ARCHETYPES.find((x) => x.key === 'equilibrado')!;
+
+/**
+ * Lo que se sabe de la build de otro participante (GDD §7.4: nada que no percibiría un humano). La de un
+ * bot es pública, porque cualquiera la ve y la edita en el lobby. La de un humano es secreta, así que se
+ * supone la media (Equilibrado) con su distrito, que sí se ve. Afinarla al verle pelear llega con el
+ * combate de la fase 8. Puede faltar en bots de partidas guardadas por la 0.5.
+ */
+export function knownBuild(o: ActorState): DerivedInput | undefined {
+  if (o.kind === 'bot') return o.build;
+  return { attributes: PRESUMED.attributes, abilities: PRESUMED.abilities, trait: PRESUMED.trait, defect: null, district: o.district };
+}
+
 /** Probabilidad de ganar a `o`: simulaciones con el motor de combate real, más el error de su dificultad. */
 export function estimateOdds(w: World, a: ActorState, o: ActorState, diff: DifficultyDef): number {
   const mind = a.mind!;
@@ -117,16 +163,26 @@ export function estimateOdds(w: World, a: ActorState, o: ActorState, diff: Diffi
   const ttl = ODDS_TTL_MS + (hashString(a.id + ':' + o.id) % 15_000);
   if (cached && w.t - cached.t < ttl) return cached.p;
   let p = 0.5;
-  if (a.build && o.build) {
+  const theirs = knownBuild(o);
+  if (a.build && theirs) {
     const key = difficultyOf(a);
+    const runs = ODDS_RUNS[key];
+    if (runs > simBudget) {
+      // Sin presupuesto en este tick: vale la estimación anterior (o la neutra) durante un momento.
+      aiStats.provisional++;
+      const prev = cached ? cached.p : 0.5;
+      mind.odds[o.id] = { p: prev, t: w.t - ttl + PROVISIONAL_TTL_MS };
+      return prev;
+    }
+    simBudget -= runs;
+    simsThisTick += runs;
     const terrainAware = key === 'experto' || key === 'dificil';
     const there = positionAt(o, w.t);
     const covered = coverOf(w, Math.round(there.x), Math.round(there.y)) >= 6;
     const scenario = SCENARIOS.find((s) => s.key === (terrainAware && covered ? 'emboscada' : 'abierto')) ?? SCENARIOS[0];
     const me: Contender = { key: a.id, name: a.name, build: a.build };
-    const them: Contender = { key: o.id, name: o.name, build: o.build };
+    const them: Contender = { key: o.id, name: o.name, build: theirs };
     const rng = new Rng(`probabilidades:${w.seed}:${a.id}:${o.id}:${Math.floor(w.t / ODDS_TTL_MS)}`);
-    const runs = ODDS_RUNS[key];
     let points = 0;
     for (let i = 0; i < runs; i++) {
       const swap = i % 2 === 1;
@@ -254,6 +310,9 @@ function scoreOptions(w: World, a: ActorState, mind: BotMind, pers: PersonalityW
     if (goal) opts.push({ action: 'esconderse', score: combine([need, 0.3 + pers.caution * 0.7]), goal, targetId: null });
   }
   opts.push({ action: 'esperar', score: 0.1 + (here >= 5 ? pers.caution * 0.3 + (protectedMode ? 0.5 : 0) : 0), goal: null, targetId: null });
+  // El estilo de juego modula los pesos: el cazador acecha más, el superviviente se esconde más…
+  const bias = PLAYSTYLES[playstyleOf(a)].actionBias;
+  for (const o of opts) o.score *= bias[o.action] ?? 1;
   return opts;
 }
 
@@ -265,8 +324,24 @@ function leg(w: World, me: Cell, goal: Cell): Cell | null {
   return nearestWalkable(w, me.x + (goal.x - me.x) * k, me.y + (goal.y - me.y) * k);
 }
 
-/** Un ciclo de decisión. Lo llama el motor cuando le toca pensar (según su dificultad). */
-export function think(w: World, a: ActorState): void {
+/**
+ * Un ciclo de decisión. Lo llama el motor cuando le toca pensar (según su dificultad). Devuelve lo que
+ * dice el bot en este ciclo, si dice algo: acechar o huir de alguien nuevo puede arrancarle una frase.
+ */
+export function think(w: World, a: ActorState): WorldEvent[] {
+  const before = a.mind ? { action: a.mind.action, targetId: a.mind.targetId } : null;
+  decide(w, a);
+  const m = a.mind!;
+  if (m.targetId && (before?.action !== m.action || before?.targetId !== m.targetId)) {
+    if (m.action === 'acechar') want(w, a, 'acecho', m.targetId);
+    else if (m.action === 'huir') want(w, a, 'huida', m.targetId);
+  }
+  const said = trySpeak(w, a);
+  return said ? [said] : [];
+}
+
+/** Elige qué hacer y da la orden (la misma intención que daría un humano). */
+function decide(w: World, a: ActorState): void {
   const diff = DIFFICULTIES[difficultyOf(a)];
   const pers = PERSONALITIES[personalityOf(a)].weights;
   const mind = (a.mind ??= { action: 'esperar', goal: null, targetId: null, since: w.t, seen: {}, odds: {} });
