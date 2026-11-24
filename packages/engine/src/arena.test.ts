@@ -153,6 +153,12 @@ describe('día, noche y exploración', () => {
     expect(a.explored & (1 << target.id)).toBeTruthy();
     expect(computeView(w, 'u-a').actors.find((x) => x.id === 'a')!.explored).toBe(a.explored);
     expect(computeView(w, 'u-b').actors.find((x) => x.id === 'a')!.explored).toBeNull();
+    // El nombre del lugar solo viaja a quien lo ha descubierto; el Obelisco lo conoce todo el mundo.
+    const name = (u: string | null) => snapshotFor(w, 'm', u, 0, ['u-a', 'u-b']).map.pois!.find((p) => p.id === target.id)!.name;
+    expect(name('u-a')).toBe(target.name);
+    expect(name('u-b')).toBe('');
+    expect(name(null)).toBe(target.name);
+    expect(snapshotFor(w, 'm', 'u-b', 0, ['u-a', 'u-b']).map.pois!.find((p) => p.kind === 'obelisco')!.name).not.toBe('');
   });
 });
 

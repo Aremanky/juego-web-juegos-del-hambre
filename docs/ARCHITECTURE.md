@@ -148,7 +148,12 @@ Migraciones: Drizzle Kit genera SQL en `apps/server/drizzle/`; el servidor las a
 | Informe de equilibrio | `docs/BALANCE.md` | `npm run balance` (400 enfrentamientos por pareja y escenario) |
 | Carga (24 humanos, mapa grande, niebla) | `apps/server/test/load.test.ts` → `docs/LOAD.md` | `npm run load` (30 s; con `npm test` dura 10 s) |
 | Integración (BD real + varios sockets) | `apps/server/test` | `npm test -w @ceniza/server` (usa `ceniza_test`) |
-| Extremo a extremo (Chrome, 2 usuarios, escritorio + móvil) | `e2e/` | `npm run build -w @ceniza/web && npm run test:e2e` |
+| Extremo a extremo (Chrome, 2 usuarios, escritorio + móvil, fps de cada uno) | `e2e/` | `npm run build -w @ceniza/web && npm run test:e2e` |
+| Rendimiento del mapa (banco sin servidor, CPU normal y ×4) | `e2e/perf.bench.ts` | `npm run bench:build -w @ceniza/web && npx playwright test -c playwright.perf.config.ts` |
+
+Integración continua (`.github/workflows/pruebas.yml`): en cada subida a `main` y en cada pull request,
+tipos, unitarias, integración con PostgreSQL 16, build y la prueba de extremo a extremo; guarda las capturas
+como artefacto. El banco de rendimiento no va en la integración continua (depende de la máquina).
 
 ## Decisiones técnicas
 
@@ -360,4 +365,23 @@ los bots siguen con su memoria.
   1280×720. Lo que lo hace posible: gris sin filtro, terreno sin escalar, niebla en recorte (`art/fog.ts`),
   figuras guardadas como imagen y densidad que baja sola de 2 a 1,5 y a 1 si los fotogramas van lentos
   (`resolution.ts`). El lienzo 2D se queda (decisión en el GDD §18).
+- **0.6.4, 60 fps** (Chrome sin GPU; la máquina de pruebas tiene 2 núcleos). Una traza mostró que el cuello de
+  botella no era el JavaScript del mapa (1–2 ms por fotograma) sino la composición de la página entera en cada
+  fotograma: la cabecera con `backdrop-filter: blur` y una capa fija de grano semitransparente encima de todo
+  obligaban a recomponer y difuminar la pantalla 60 veces por segundo. Cambios:
+  - grano pintado en el propio fondo de `body` y cabecera opaca, sin desenfoque;
+  - lienzo del mapa opaco (`getContext('2d', { alpha: false })`) y relleno de fondo solo fuera del mapa;
+  - densidad adaptativa que baja por debajo de ~50 fps (antes ~35) y llega a 0,75 en pantallas de densidad 1;
+  - camafeos de la lista en caché (se rehacían con cada fotograma del servidor).
+
+  Resultado en el banco (24 participantes, 8 caídos, noche, niebla y bocadillos): escritorio 1280×720 a 60 fps
+  con la CPU normal y 57 con la CPU 4 veces más lenta; móvil 390×844 a 60 en los dos casos. En la partida real,
+  con un solo jugador por máquina, 58–60 fps antes de que el servidor y los bots compitan por los 2 núcleos de
+  la máquina de pruebas (54 ya asentado, con la densidad en 0,75). La prueba E2E antigua medía 33 fps porque los
+  dos jugadores dibujaban a la vez en el mismo Chrome; ahora congela la página del otro mientras mide.
+- **Banco de rendimiento** (`apps/web/bench/mapa.html`, `src/bench/mapa.tsx`): MapCanvas con una partida
+  generada y sin servidor; parámetros `n`, `caidos`, `noche`, `niebla` y `bocadillos`. Se ejecuta con
+  `npm run bench:build -w @ceniza/web && npx playwright test -c playwright.perf.config.ts` y deja los números en
+  `e2e/.artifacts/perf.json`. `art/probe.ts` mide el JavaScript de cada parte del fotograma y permite apagar
+  partes; solo existe si la página crea `window.__cenizaPerf`.
 

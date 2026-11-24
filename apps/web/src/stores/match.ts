@@ -151,6 +151,9 @@ export const useMatch = create<MatchStore>((set, get) => ({
         return;
       }
       set({ log: [...get().log, e].slice(-40) });
+      const found = e.kind === 'descubre' ? e.poi : undefined;
+      if (found) set({ pois: get().pois.map((p) => (p.id === found.id ? { ...p, name: found.name } : p)) });
+      if (e.kind === 'fin' && e.pois) set({ pois: e.pois });
       if (e.kind === 'fin') toast.success(e.text);
       else if (e.kind === 'eliminado' || e.kind === 'pausa' || e.kind === 'votacion' || e.kind === 'descubre') toast.info(e.text);
     });

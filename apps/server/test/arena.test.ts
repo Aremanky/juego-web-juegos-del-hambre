@@ -114,12 +114,26 @@ describe('arena de la fase 7 con bots de la fase 6', () => {
     Object.assign(w.actors.find((a) => a.userId === beto.id)!, { x: c.x + 40, y: c.y, route: null });
     events.get('ana')!.length = 0;
     events.get('beto')!.length = 0;
-    w.speechAt = undefined;
-    if (b.talk) b.talk.saidAt = -1e9;
-    want(w, b, 'region', null, 1);
+    // Que hable ya: sin espera entre frases, sin otra frase pendiente que mande más (la noche llega cada 4 s en
+    // esta prueba) y pensando en el siguiente tick. Se repite hasta que llega, porque en una máquina lenta la
+    // frase podía caducar antes de que al bot le tocara pensar (fallaba en la integración continua).
+    const nudge = () => {
+      w.speechAt = undefined;
+      if (b.talk) {
+        b.talk.saidAt = -1e9;
+        b.talk.pending = null;
+      }
+      want(w, b, 'region', null, 1);
+      b.nextThinkAt = w.t;
+    };
     const end = Date.now() + 10_000;
+    let last = 0;
     while (!events.get('ana')!.some((e) => e.kind === 'dice' && e.actorId === b.id)) {
       if (Date.now() > end) throw new Error('no llega la frase del bot');
+      if (Date.now() - last > 300) {
+        nudge();
+        last = Date.now();
+      }
       await sleep(50);
     }
     const said = events.get('ana')!.find((e) => e.kind === 'dice' && e.actorId === b.id)!;

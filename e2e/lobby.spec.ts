@@ -178,10 +178,11 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await a.waitForTimeout(900);
   await shot(a, '13-presentacion');
   await expect(a.getByText(/Nadie se mueve hasta el final/)).toBeVisible({ timeout: 10_000 });
-  await expect(a.getByText('Toca una casilla para ir.', { exact: false })).toBeVisible({ timeout: 10_000 });
-  await expect(b.getByText('Toca una casilla para ir.', { exact: false })).toBeVisible();
+  // Con ratón, pasar por encima enseña la ruta y un clic es la orden; en móvil, el primer toque la enseña.
+  await expect(a.getByText('Pasa el ratón para ver la ruta', { exact: false })).toBeVisible({ timeout: 10_000 });
+  await expect(b.getByText('Toca una casilla para ver la ruta', { exact: false })).toBeVisible();
 
-  // Un toque en el mapa es una orden de ir: aparece «Parar» mientras camina.
+  // Un clic en el mapa es una orden de ir: aparece «Parar» mientras camina.
   const box = (await a.locator('.map-canvas').boundingBox())!;
   await a.mouse.click(box.x + box.width / 2 + 70, box.y + box.height / 2 + 40);
   await expect(a.getByRole('button', { name: 'Parar' })).toBeVisible();
@@ -195,22 +196,35 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await shot(b, '15-partida-movil');
   await expect(a.getByText(/^Día 1\. Anochece en/)).toBeVisible();
   await a.waitForTimeout(800);
-  // Fotogramas por segundo del mapa con todos los personajes animados (Chrome sin GPU de las pruebas).
-  const fps = await a.evaluate(
-    () =>
-      new Promise<number>((done) => {
-        let n = 0;
-        const t0 = performance.now();
-        const frame = () => {
-          n++;
-          if (performance.now() - t0 < 2000) requestAnimationFrame(frame);
-          else done(n / ((performance.now() - t0) / 1000));
-        };
-        requestAnimationFrame(frame);
-      }),
-  );
-  writeFileSync(`${SHOTS}/fps.txt`, `${fps.toFixed(1)}\n`);
-  expect(fps).toBeGreaterThan(20);
+  // Fotogramas por segundo del mapa con todos los personajes animados (Chrome sin GPU de las pruebas). Los dos
+  // jugadores comparten el mismo Chrome y la misma CPU: mientras se mide uno, la página del otro se congela, como
+  // si cada uno jugara en su dispositivo.
+  const fpsOf = async (p: Page, other: Page) => {
+    const freeze = await other.context().newCDPSession(other);
+    await freeze.send('Page.setWebLifecycleState', { state: 'frozen' });
+    await p.waitForTimeout(2500); // que se asiente sin la otra página (bloques del terreno, densidad)
+    const v = await p.evaluate(
+      () =>
+        new Promise<number>((done) => {
+          let n = 0;
+          const t0 = performance.now();
+          const frame = () => {
+            n++;
+            if (performance.now() - t0 < 3000) requestAnimationFrame(frame);
+            else done(n / ((performance.now() - t0) / 1000));
+          };
+          requestAnimationFrame(frame);
+        }),
+    );
+    await freeze.send('Page.setWebLifecycleState', { state: 'active' });
+    await freeze.detach();
+    return v;
+  };
+  const fps = await fpsOf(a, b);
+  const fpsMovil = await fpsOf(b, a);
+  writeFileSync(`${SHOTS}/fps.txt`, `escritorio ${fps.toFixed(1)}\nmóvil ${fpsMovil.toFixed(1)}\n`);
+  expect(fps).toBeGreaterThan(25);
+  expect(fpsMovil).toBeGreaterThan(25);
 
   // Fase 7: modo holograma con la retícula de sectores, y vuelta al mapa ilustrado.
   await a.getByRole('button', { name: 'Holograma' }).click();
@@ -239,7 +253,7 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   // Recargar a mitad de partida devuelve a la arena con la instantánea completa.
   await b.reload();
   await expect(b.locator('.map-canvas')).toBeVisible();
-  await expect(b.getByText('Toca una casilla para ir.', { exact: false })).toBeVisible();
+  await expect(b.getByText('Toca una casilla para ver la ruta', { exact: false })).toBeVisible();
 
   // Abandonar deja a la amiga fuera, mirando, con su puesto en la lista.
   await b.getByRole('button', { name: 'Abandonar la partida' }).click();

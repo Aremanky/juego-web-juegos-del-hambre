@@ -310,6 +310,13 @@ export class MatchRuntime {
       const text = this.text(e);
       if (text) {
         const dto: MatchEventDTO = { kind: e.type, text, at: now };
+        if (e.type === 'descubre') {
+          // El nombre del lugar solo se conoce al llegar: la instantánea no lo trae hasta entonces.
+          const poi = this.world.map.pois.find((p) => p.id === e.region);
+          if (poi) dto.poi = { id: poi.id, name: poi.name };
+        }
+        // Al terminar se revelan todos los nombres.
+        if (e.type === 'fin') dto.pois = this.world.map.pois;
         // Descubrir una región es privado: contárselo a todos revelaría dónde está con niebla.
         const only = e.type === 'descubre' ? actorById(this.world, e.actorId)?.userId : undefined;
         for (const [socketId, userId] of this.host.sockets()) {

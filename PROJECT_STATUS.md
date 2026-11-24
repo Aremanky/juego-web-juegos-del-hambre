@@ -1,6 +1,6 @@
 # PROJECT_STATUS — Los Juegos de la Ceniza
 
-**Versión:** 0.6.3 · **Última actualización:** 24/11/2026 (sesión 4: cierre de las fases 6 y 7) · **Avance global: ~72 %**
+**Versión:** 0.6.4 · **Última actualización:** 24/11/2026 (sesión 5: correcciones de la revisión y mapa a 60 fps) · **Avance global: ~73 %**
 
 El proyecto es ejecutable: se puede registrar, guardar fotos y personajes, crear salas, invitar por código o
 enlace, preparar la partida con amigos y bots y **jugarla en tiempo real**.
@@ -49,6 +49,15 @@ Desde la 0.6.3 (cierre de la fase 7):
 - **Teclado y contraste:** la lista de participantes se recorre con el teclado y abre la tarjeta; el texto de la
   tarjeta pasa de 4,5:1 sobre cualquier terreno.
 
+Desde la 0.6.4 (revisión y rendimiento):
+- **El mapa va a 60 fps** sin GPU en un equipo normal (escritorio y móvil). El cuello de botella era la
+  cabecera difuminada y una capa de grano encima de toda la pantalla, no el dibujo del mapa. Los «30 fps» de
+  antes eran de la prueba E2E con los dos jugadores dibujando a la vez en el mismo Chrome.
+- **Integración continua** en GitHub: tipos, pruebas, build y E2E en cada subida y en cada PR.
+- La prueba E2E vuelve a pasar (se había quedado con los avisos de antes de la fase 7).
+- Los nombres de los lugares ya no viajan en los datos antes de descubrirlos.
+- Montañas en macizos según la altura, y en el móvil el aviso y los rótulos ya no se pisan.
+
 Todavía no hay combate en la partida, ni recursos ni eventos (fases 8–9).
 
 Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Aremanky/juego-web-juegos-del-hambre).
@@ -58,7 +67,7 @@ Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Ar
 | Fase | Contenido | Peso | Avance | Barra |
 |---|---|---|---|---|
 | 1 | Entorno, experiencia y mecánicas (GDD) | 4 % | **100 %** | ██████████ |
-| 2 | Arquitectura, estructura e infraestructura | 6 % | **90 %** | █████████░ |
+| 2 | Arquitectura, estructura e infraestructura | 6 % | **95 %** | █████████▌ |
 | 3 | Usuarios, salas, lobby, personajes, fotos persistentes | 11 % | **100 %** | ██████████ |
 | 4 | Motor multijugador y sincronización de partida | 11 % | **100 %** | ██████████ |
 | 5 | Estadísticas, habilidades y reparto de puntos | 6 % | **100 %** | ██████████ |
@@ -67,7 +76,7 @@ Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Ar
 | 8 | Recursos, combates, alianzas y traiciones | 11 % | 15 % | █▌░░░░░░░░ |
 | 9 | Eventos dinámicos y progresión | 6 % | 5 % | ▌░░░░░░░░░ |
 | 10 | Interfaz completa, personalización amplia y personaje desde foto | 13 % | 45 % | ████▌░░░░░ |
-| 11 | Pruebas completas, optimización y errores | 4 % | 50 % | █████░░░░░ |
+| 11 | Pruebas completas, optimización y errores | 4 % | 60 % | ██████░░░░ |
 | 12 | Despliegue definitivo en Proxmox | 3 % | 60 % | ██████░░░░ |
 
 Los pesos se recalcularon en esta sesión al ampliar el alcance de las fases 7 y 10 (personajes animados,
@@ -116,7 +125,7 @@ Notas de reparto:
 - Inicio automático o forzado, sobrevuelo de la arena, presentación y cuenta atrás.
 - Mover con un toque, niebla de guerra opcional, pausa por votación y políticas de desconexión.
 - Abandono, clasificación, ganador, instantáneas cada 10 s y recuperación en pausa.
-- Probada con 24 humanos: tick p95 de 1,9 ms y 6,8 KB/s por jugador (`docs/LOAD.md`).
+- Probada con 24 humanos: tick p95 de 2,5 ms y 5,6 KB/s por jugador (`docs/LOAD.md`, 0.6.4).
 
 **Bots con IA (fase 6)**
 - Deciden entre ir al Obelisco al empezar, explorar la región sin descubrir más cercana, acechar a quien
@@ -169,7 +178,7 @@ Notas de reparto:
   - reposo, andar, correr, nadar, agacharse en la maleza, caído y celebración;
   - anillo del color del jugador, punteado si va con piloto automático;
   - apariencia elegida en la pestaña Apariencia del editor (o derivada del retrato).
-- 41 fps con todo el mapa y los personajes en el Chrome sin GPU de las pruebas.
+- 60 fps en el banco del mapa sin GPU (0.6.4): ver «Rendimiento del mapa» en las pruebas.
 
 **Interfaz e infraestructura**
 - Identidad visual «Ceniza y cristal» en todas las pantallas; revisiones anti-IA sin señales.
@@ -180,17 +189,18 @@ Notas de reparto:
 
 | Suite | Resultado | Cubre |
 |---|---|---|
-| Unitarias (`packages/shared`) | **34/34 ✔** (0.6.3) | Reglas de personaje, efectos según la situación, desglose idéntico al motor; apariencia elegida, su validación y el camafeo con ella. En la 0.6.2: catálogo de frases completo (todas las voces en todas las situaciones, identificadores únicos, marcadores, longitud) y sesgos de los estilos de juego |
-| Motor (`packages/engine`) | **67/67 ✔** (0.6.3) | En la 0.6.3, 4 nuevas: la ruta prevista es la misma que la de la orden, con los mismos errores (fuera del mapa, sin camino, demasiado lejos) y el caso de pararse, y la vista lleva velocidad y costes solo para su dueño. En la 0.6.2, 17 nuevas: frases deterministas, solo hablan los bots, silencio con el chat desactivado, separación y enfriamiento, acecho con el nombre, victoria, el mundo se mueve igual con y sin frases, quién oye cada frase con niebla (también si nombra a alguien que no ve), partidas guardadas sin estado de habla, estilos (cazador y superviviente, saqueador y Obelisco), estimación igual contra dos humanos con builds distintas, presupuesto de simulaciones por tick, caché de estadísticas idéntica y calentamiento sin tocar el azar. En la 0.6.1, 11 nuevas sobre las 35 anteriores. Del generador: determinista, ríos, caminos hasta cada poblado y ruina, nombres únicos, anillo de salida limpio, instantánea con relieve, ríos y caminos, y compatibilidad con la 0.5. Del día y la noche: ciclo, visión nocturna con niebla y avisos. De la exploración: región descubierta solo para quien entra. De la IA: bots que se mueven solos y determinismo, el agresivo al Obelisco y el cauteloso apartándose, huida y acecho, niebla y olvido del Fácil, y 23 bots por debajo de 5 ms por tick |
-| Cliente (`apps/web`) | **66/66 ✔** (0.6.3) | En la 0.6.3, 56 nuevas: rumbo en ocho octantes; las vistas de 3/4 y el espejo; trepar, caer y los caídos en gris sin filtro; qué personaje hay bajo el dedo; «visto por última vez» y la hora de cada caída; ruta prevista, su tiempo y los dos toques; lo que dice la tarjeta; zoom en reposo en píxeles enteros; nivel de los bloques; niebla en recorte; fotogramas guardados como imagen (caché por píxeles que reutiliza lienzos y no guarda nada mientras cambia el zoom) y densidad que baja sola. En la 0.6.2: colocación de los bocadillos (no se pisan, no tapan caras, el pico va a su dueño sin atravesar otro, bordes de la pantalla, se queda donde estaba entre dos sitios iguales) y reparto de líneas |
-| Integración (`apps/server`, PostgreSQL real) | **47/47 ✔** (última ejecución: 0.6.1; la 0.6.2 añade el reparto de las frases de los bots y la 0.6.3, que la instantánea lleve velocidad y costes solo del propio jugador) | Todo lo anterior más la arena con bots: instantánea con relieve, lugares y ciclo, bots moviéndose con la IA del servidor, aviso de región privado y noche para todos |
-| Carga (`npm run load`, 30 s) | **✔** (última ejecución: 0.6.1) | 24 humanos, mapa grande con niebla: tick p95 1,9 ms, respuesta p95 4 ms, 6,8 KB/s por jugador |
-| Extremo a extremo (Chrome real) | **1/1 ✔** (última ejecución: 0.6.1) | Del registro a la partida en escritorio y móvil, ahora con el mapa nuevo (también de cerca), la pestaña Apariencia, los personajes, el reloj de día, el holograma, la noche y una medida de 41 fps |
-| Compilación y tipos | ✔ | 0.6.3 y 0.6.2: `tsc` de `shared` y `engine` sin errores; servidor y web comprobados con declaraciones mínimas de sus dependencias, sin errores nuevos. Build de servidor y web: última en la 0.6.1 |
-| Rendimiento del mapa (Chrome sin GPU, 24 personajes con 8 caídos, noche y niebla, 10 s) | **✔** (0.6.3) | Con la CPU normal, 60 fps en móvil y escritorio. Con la CPU 4 veces más lenta: móvil 390×844, 45–50 fps (la densidad baja sola a 1); escritorio 1280×720, unos 34 (de 29 a 39 según la tanda). Antes, con 8 caídos a la vista: 0,9 y 2,6 fps con la CPU normal. Niebla y figuras guardadas comprobadas píxel a píxel contra el dibujo directo |
+| Unitarias (`packages/shared`) | **34/34 ✔** (0.6.4) | Reglas de personaje, efectos según la situación, desglose idéntico al motor; apariencia elegida y camafeo; catálogo de frases y su reparto |
+| Motor (`packages/engine`) | **67/67 ✔** (0.6.4) | Generador, día y noche, exploración (en la 0.6.4, también que el nombre de un lugar solo viaja a quien lo ha descubierto), IA y su presupuesto por partida, frases, ruta prevista igual a la del servidor, combate y equilibrio |
+| Cliente (`apps/web`) | **67/67 ✔** (0.6.4) | Rumbos, vistas de 3/4 y espejo, caídas, selección bajo el dedo, «visto por última vez», tarjeta, ruta prevista, niebla, bocadillos y densidad adaptativa (en la 0.6.4, que baje por debajo de ~50 fps y llegue a 0,75 en pantallas de densidad 1) |
+| Integración (`apps/server`, PostgreSQL real) | **49/49 ✔** (0.6.4) | Salas, partida, niebla, pausa, reconexión, arena con bots, frases repartidas solo a quien ve al bot y movimiento solo para su dueño |
+| Carga (`npm run load`, 30 s) | **✔** (0.6.4) | 24 humanos, mapa grande con niebla: tick p95 2,5 ms, respuesta p95 4 ms, 5,6 KB/s por jugador |
+| Extremo a extremo (Chrome real) | **1/1 ✔** (0.6.4) | Del registro a la partida en escritorio y móvil, con el mapa, la apariencia, el reloj de día, el holograma, la noche y los fps de cada jugador con la página del otro congelada (39–55 según la ejecución: la máquina de pruebas tiene 2 núcleos y también ejecuta el servidor y los bots; con un solo jugador en la máquina, 54–60) |
+| Compilación y tipos | ✔ (0.6.4) | `tsc` en los 4 paquetes con `noUnusedLocals` y `noUnusedParameters`, build de servidor y web |
+| Rendimiento del mapa (banco: Chrome sin GPU, 24 personajes con 8 caídos, noche, niebla y bocadillos) | **✔** (0.6.4) | CPU normal: 60 fps en escritorio 1280×720 y en móvil 390×844. CPU 4 veces más lenta, ya asentado: 57 en escritorio (densidad 0,75) y 60 en móvil (densidad 1) |
 | Rendimiento de la IA (23 bots, mapa grande, 5 min) | **✔** (0.6.2) | 0,8 ms de media por tick, p95 3,5 ms, p99 6,9 ms; arranque de cada partida ≤ 16 ms una vez caliente; hash del informe de equilibrio sin cambios |
 | Diseño (unslop-ui y detector de Impeccable) | **0 señales** | Todas las pantallas en la 0.6.0; en la 0.6.1, el detector sobre la pestaña Apariencia; en la 0.6.2, los bocadillos con el suelo de oficio de Impeccable y capturas a 1280×720 y 390×844 de día, de noche y en holograma; en la 0.6.3, ocho rumbos, caída, ruta prevista, marcas, tarjeta y barra «Ir» en dos rondas de capturas, revisión de diseño y de accesibilidad (contraste medido sobre cinco terrenos, tabulador, 320 px y muesca) |
-| Producción | ✔ (última ejecución: 0.6.1) | Health 0.6.1, SPA y rutas internas (build de servidor y web servido por Fastify) |
+| Integración continua | ✔ (0.6.4) | `.github/workflows/pruebas.yml`: tipos, pruebas, build y E2E en cada subida a `main` y en cada PR |
+| Producción | ✔ (0.6.4) | Build del servidor y de la web servidos juntos por Fastify en la prueba E2E |
 
 ## Skills y plugins instalados para el desarrollo
 
@@ -227,8 +237,8 @@ Notas de reparto:
 - Sin combate en la partida todavía: los bots acechan y huyen, pero nadie ataca. Una partida solo termina por
   abandonos o desconexiones con la regla «eliminar».
 - Los objetos del mapa se dibujan en vectorial hasta que estén las hojas de SpriteCook en `public/map/`.
-- Sin GPU y con la CPU 4 veces más lenta, el escritorio va a unos 34 fps (de 29 a 39 según la tanda): ahí la
-  densidad no puede bajar de 1. En el móvil baja sola y no vuelve a subir en esa partida.
+- Sin GPU y en un equipo lento, el mapa baja su densidad para mantener los fps: en pantallas de densidad 1
+  puede llegar a 0,75 y se ve algo más suave. No vuelve a subir en esa partida.
 - Las animaciones de las figuras van a pasos (unos 21 fotogramas por segundo andando) para poder guardarlas
   como imagen.
 - Moverse por el mapa solo se puede con ratón o dedo; la ruta prevista y su aviso no se anuncian a los lectores
@@ -241,7 +251,7 @@ Notas de reparto:
 - No hay panel de administración web todavía; existe `npm run admin:promote`.
 - systemd, ufw y Caddy no se han podido ejecutar aquí (el entorno no tiene systemd). Ver `docs/DEPLOYMENT.md` §9.
 
-## Próximos pasos (sesión 5)
+## Próximos pasos (sesión 6)
 
 1. **Fase 8:** combate en la partida con el motor de la fase 5 (atacar, emboscar, huir), medidores de
    supervivencia, búsqueda de recursos con los efectos de actividad ya definidos, inventario y fabricación;
@@ -251,5 +261,6 @@ Notas de reparto:
 
 ## Cómo continuar en la próxima sesión
 
-El código está en GitHub. `main` tiene hasta la 0.6.1 (ramas #2 a #5 fusionadas). La 0.6.2 y la 0.6.3 están
-en la rama local `fase-6-cierre`, que sale de `main`, sin subir: se entregan como parches. Al empezar la próxima sesión basta con decir que siga desde el repositorio.
+El código está en GitHub y `main` lo tiene todo hasta la 0.6.4. La integración continua ejecuta las pruebas en
+cada subida y en cada PR. Al empezar la próxima sesión basta con decir que siga desde el repositorio: lo
+siguiente es la fase 8.

@@ -70,20 +70,19 @@ const PROVISIONAL_TTL_MS = 2_000;
 /** Contadores de la IA, para las pruebas y el diagnóstico. */
 export const aiStats = { ticks: 0, maxSimsInTick: 0, provisional: 0 };
 
-let simBudget = Number.POSITIVE_INFINITY;
-let simsThisTick = 0;
-
-/** Abre el presupuesto de simulaciones de un tick. Fuera de un tick no hay límite. */
-export function beginTickBudget(): void {
-  simBudget = SIM_BUDGET_PER_TICK;
-  simsThisTick = 0;
+/**
+ * Abre el presupuesto de simulaciones de un tick de esta partida (vive en el mundo, no en el módulo: cada
+ * partida del proceso tiene el suyo). Fuera de un tick no hay límite.
+ */
+export function beginTickBudget(w: World): void {
+  w.sims = { left: SIM_BUDGET_PER_TICK, used: 0 };
 }
 
-export function endTickBudget(): void {
+export function endTickBudget(w: World): void {
   aiStats.ticks++;
-  if (simsThisTick > aiStats.maxSimsInTick) aiStats.maxSimsInTick = simsThisTick;
-  simBudget = Number.POSITIVE_INFINITY;
-  simsThisTick = 0;
+  const used = w.sims?.used ?? 0;
+  if (used > aiStats.maxSimsInTick) aiStats.maxSimsInTick = used;
+  w.sims = undefined;
 }
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -167,15 +166,17 @@ export function estimateOdds(w: World, a: ActorState, o: ActorState, diff: Diffi
   if (a.build && theirs) {
     const key = difficultyOf(a);
     const runs = ODDS_RUNS[key];
-    if (runs > simBudget) {
+    if (w.sims && runs > w.sims.left) {
       // Sin presupuesto en este tick: vale la estimación anterior (o la neutra) durante un momento.
       aiStats.provisional++;
       const prev = cached ? cached.p : 0.5;
       mind.odds[o.id] = { p: prev, t: w.t - ttl + PROVISIONAL_TTL_MS };
       return prev;
     }
-    simBudget -= runs;
-    simsThisTick += runs;
+    if (w.sims) {
+      w.sims.left -= runs;
+      w.sims.used += runs;
+    }
     const terrainAware = key === 'experto' || key === 'dificil';
     const there = positionAt(o, w.t);
     const covered = coverOf(w, Math.round(there.x), Math.round(there.y)) >= 6;
@@ -252,7 +253,7 @@ function fleeGoal(w: World, me: Cell, threat: { x: number; y: number }): Cell | 
   return best;
 }
 
-function scoreOptions(w: World, a: ActorState, mind: BotMind, pers: PersonalityWeights, diff: DifficultyDef, me: Cell, seen: Seen[], protectedMode: boolean): Option[] {
+function scoreOptions(w: World, a: ActorState, _mind: BotMind, pers: PersonalityWeights, diff: DifficultyDef, me: Cell, seen: Seen[], protectedMode: boolean): Option[] {
   const opts: Option[] = [];
   const vision = Math.max(1, visionAt(w, a, me));
   const night = !!w.night;

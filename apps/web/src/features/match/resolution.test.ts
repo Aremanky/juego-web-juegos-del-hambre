@@ -21,7 +21,7 @@ describe('densidad del mapa según lo que tardan los fotogramas', () => {
     expect(r.dpr).toBe(2);
   });
 
-  it('si van lentos de forma sostenida, baja un paso cada vez (2, 1,5, 1) y no baja de 1', () => {
+  it('si van lentos de forma sostenida, baja un paso cada vez (2, 1,5, 1) y en pantallas densas no baja de 1', () => {
     const r = new Resolution(2);
     expect(run(r, 40, 4)).toBe(1);
     expect(r.dpr).toBe(1.5);
@@ -29,6 +29,15 @@ describe('densidad del mapa según lo que tardan los fotogramas', () => {
     expect(r.dpr).toBe(1);
     expect(run(r, 40, 10, 8000)).toBe(0);
     expect(r.dpr).toBe(1);
+  });
+
+  it('por debajo de unos 50 fps sostenidos también baja; en pantallas de densidad 1 llega a 0,75', () => {
+    const r = new Resolution(1);
+    expect(run(r, 22, 4)).toBe(1);
+    expect(r.dpr).toBe(0.75);
+    expect(run(r, 40, 10, 4000)).toBe(0);
+    expect(r.dpr).toBe(0.75);
+    expect(run(new Resolution(1), 18, 10)).toBe(0);
   });
 
   it('con fotogramas muy lentos (más de un cuarto de segundo) también baja, no los toma por pausas', () => {

@@ -27,7 +27,7 @@ import { onElimination, speechTriggers, victoryLine, type TalkState } from './sp
 import { generateMap, heightsFromTiles, inBounds, regionAt, spawnRing, tileAt, type Cell, type GameMap, type Poi } from './map.js';
 import { findPath } from './path.js';
 import { buildRoute, nextStop, routeEnd, routeEndTime, routeGlimpse, routePosition, truncateAfterCurrent, type Route } from './route.js';
-import { decodeTiles, encodeTiles, T, TERRAIN } from './terrain.js';
+import { decodeTiles, encodeTiles, TERRAIN } from './terrain.js';
 
 /**
  * Simulación autoritativa de una partida (GDD §3). Sin E/S: el servidor la hace avanzar a 10 Hz,
@@ -131,6 +131,8 @@ export interface VoteState {
 
 export interface World {
   v: 1;
+  /** Presupuesto de simulaciones de la IA durante un tick (no se guarda: fuera del tick no existe). */
+  sims?: { left: number; used: number };
   seed: string;
   map: GameMap;
   tick: number;
@@ -293,11 +295,11 @@ export function tick(w: World, now: number, eligible: string[]): WorldEvent[] {
     w.night = night;
     ev.push({ type: night ? 'anochece' : 'amanece' });
   }
-  beginTickBudget();
+  beginTickBudget(w);
   try {
     actorsStep(w, ev);
   } finally {
-    endTickBudget();
+    endTickBudget(w);
   }
   speechTriggers(w, ev);
   return ev;
@@ -582,12 +584,22 @@ export function voteDTO(w: World, eligible: string[]): VoteDTO | null {
   return w.vote ? { byUserId: w.vote.byUserId, byName: w.vote.byName, yes: [...w.vote.yes], no: [...w.vote.no], needed: votesNeeded(w, eligible), endsAt: w.vote.endsAt } : null;
 }
 
+/**
+ * Lugares tal como los conoce quien mira: los nombres de las regiones que aún no ha pisado van vacíos, para
+ * que no se puedan leer en los datos antes de descubrirlas (GDD §7.4). Los sitios se ven en el mapa igual.
+ */
+export function poisFor(w: World, viewerUserId: string | null): Poi[] {
+  const me = viewerUserId ? w.actors.find((a) => a.userId === viewerUserId) : undefined;
+  if (!me || w.phase === 'terminada') return w.map.pois;
+  return w.map.pois.map((p) => (p.kind === 'obelisco' || (me.explored & (1 << p.id)) !== 0 ? p : { ...p, name: '' }));
+}
+
 export function snapshotFor(w: World, matchId: string, viewerUserId: string | null, now: number, eligible: string[]): MatchSnapshot {
   const view = computeView(w, viewerUserId);
   return {
     matchId,
     seed: w.seed,
-    map: { size: w.map.size, tiles: encodeTiles(w.map.tiles), heights: encodeTiles(w.map.heights), center: w.map.center, pois: w.map.pois, rivers: flatPaths(w.map.rivers), roads: flatPaths(w.map.roads) },
+    map: { size: w.map.size, tiles: encodeTiles(w.map.tiles), heights: encodeTiles(w.map.heights), center: w.map.center, pois: poisFor(w, viewerUserId), rivers: flatPaths(w.map.rivers), roads: flatPaths(w.map.roads) },
     phase: w.phase,
     phaseEndsAt: w.phaseEndsAt,
     clock: { t: w.t, now, running: !w.paused && w.phase !== 'terminada' },

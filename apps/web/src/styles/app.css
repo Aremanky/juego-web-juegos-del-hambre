@@ -68,15 +68,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Grano de ceniza sobre todo el fondo */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.07;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .9  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+/* Grano de ceniza sobre todo el fondo. Va pintado en el propio fondo (con la opacidad ya en el SVG) y no en una
+   capa fija encima: una capa semitransparente a pantalla completa obligaba a recomponer toda la pantalla en
+   cada fotograma del mapa, que sin GPU era lo que más costaba. */
+body {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .9  0 0 0 .0385 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
 
 #root {
@@ -284,9 +280,8 @@ small, .small { font-size: var(--fs-0); }
   gap: 1rem;
   padding: 0.5rem clamp(0.75rem, 3vw, 1.5rem);
   padding-top: max(0.5rem, env(safe-area-inset-top));
-  background: linear-gradient(180deg, rgba(15, 21, 23, 0.96), rgba(15, 21, 23, 0.82));
+  background: linear-gradient(180deg, rgba(15, 21, 23, 0.98), rgba(15, 21, 23, 0.94));
   border-bottom: 1px solid var(--line);
-  backdrop-filter: blur(8px);
 }
 .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--hueso); text-decoration: none; }
 .brand-name { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; letter-spacing: 0.06em; white-space: nowrap; }

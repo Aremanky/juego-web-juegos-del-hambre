@@ -1,21 +1,24 @@
 /**
  * Densidad del lienzo del mapa según lo rápido que salen los fotogramas. Empieza en la de la pantalla (como mucho
- * 2). Si en una ventana de 2 s la mediana entre fotogramas pasa de 28 ms (menos de unos 35 por segundo), baja un
- * paso: 2, 1,5 y 1. No vuelve a subir en la partida, para no ir y venir. Con GPU no llega a bajar; sin GPU, en un
- * móvil lento, es lo que deja el mapa por encima de 30 fotogramas por segundo (medido en la fase 7).
+ * 2). Si en una ventana de 2 s la mediana entre fotogramas pasa de 20 ms (menos de unos 50 por segundo), baja un
+ * paso: 2, 1,5, 1 y, solo en pantallas de densidad 1, 0,75. No vuelve a subir en la partida, para no ir y venir.
+ * Con GPU no llega a bajar; sin GPU, en un equipo lento, es lo que acerca el mapa a 60 fotogramas por segundo.
  */
 export class Resolution {
   dpr: number;
   private gaps: number[] = [];
   private last = -1;
   private since = 0;
+  /** Lo más bajo a lo que llega: 1 en pantallas densas; 0,75 en las de densidad 1 (antes que ir a tirones). */
+  private readonly floor: number;
 
   constructor(
     screen: number,
-    private readonly slowMs = 28,
+    private readonly slowMs = 20,
     private readonly spanMs = 2000,
   ) {
     this.dpr = Math.min(2, screen || 1);
+    this.floor = (screen || 1) >= 2 ? 1 : 0.75;
   }
 
   /** Un fotograma a la hora `t` (ms). Devuelve true si acaba de bajar la densidad. */
@@ -40,7 +43,7 @@ export class Resolution {
     const median = sorted[sorted.length >> 1];
     this.gaps = [];
     this.since = t;
-    const next = this.dpr > 1.5 ? 1.5 : this.dpr > 1 ? 1 : this.dpr;
+    const next = Math.max(this.floor, this.dpr > 1.5 ? 1.5 : this.dpr > 1 ? 1 : 0.75);
     if (median > this.slowMs && next < this.dpr) {
       this.dpr = next;
       return true;
