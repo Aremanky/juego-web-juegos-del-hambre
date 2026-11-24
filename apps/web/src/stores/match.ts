@@ -15,6 +15,9 @@ interface MatchStore {
   tiles: Uint8Array | null;
   heights: Uint8Array | null;
   pois: PoiDTO[];
+  /** Ríos y caminos como listas de casillas [x0, y0, x1, y1, …] (vacías en partidas anteriores a la 0.7). */
+  rivers: number[][];
+  roads: number[][];
   day: DayCycleDTO | null;
   center: { x: number; y: number };
   visibility: 'visible' | 'niebla';
@@ -44,6 +47,8 @@ const empty = {
   tiles: null,
   heights: null,
   pois: [],
+  rivers: [],
+  roads: [],
   day: null,
   center: { x: 0, y: 0 },
   visibility: 'visible' as const,
@@ -73,6 +78,8 @@ export const useMatch = create<MatchStore>((set, get) => ({
         // Partidas anteriores a la fase 7 no traen relieve: se aproxima por el terreno.
         heights: same && get().heights ? get().heights : snap.map.heights ? decodeTiles(snap.map.heights) : heightsFromTiles(decodeTiles(snap.map.tiles)),
         pois: snap.map.pois ?? [],
+        rivers: same ? get().rivers : snap.map.rivers ?? [],
+        roads: same ? get().roads : snap.map.roads ?? [],
         day: snap.day ?? null,
         center: snap.map.center,
         visibility: snap.visibility,

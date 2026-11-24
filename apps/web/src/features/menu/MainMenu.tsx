@@ -29,7 +29,7 @@ export function MainMenu() {
         </div>
         {lead && (
           <Link to={`/personajes/${lead.id}`} className="menu-lead" title="Tu personaje más reciente">
-            <Portrait portrait={lead.data.portrait} color={lead.data.color} frame={lead.data.frame} size={64} />
+            <Portrait portrait={lead.data.portrait} look={lead.data.look} color={lead.data.color} frame={lead.data.frame} size={64} />
             <span>
               <strong className="display">{lead.data.name}</strong>
               {lead.data.epithet && <span className="muted small"> {lead.data.epithet}</span>}
@@ -90,7 +90,7 @@ export function MainMenu() {
             <Link to="/personajes" className="shelf-item">
               <div className="shelf-faces">
                 {(templates ?? []).slice(0, 4).map((t) => (
-                  <Portrait key={t.id} portrait={t.data.portrait} color={t.data.color} frame="sencillo" size={40} />
+                  <Portrait key={t.id} portrait={t.data.portrait} look={t.data.look} color={t.data.color} frame="sencillo" size={40} />
                 ))}
                 {!templates?.length && <span className="shelf-empty" aria-hidden="true" />}
               </div>

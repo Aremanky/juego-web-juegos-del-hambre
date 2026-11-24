@@ -1,6 +1,6 @@
 # PROJECT_STATUS — Los Juegos de la Ceniza
 
-**Versión:** 0.6.0 · **Última actualización:** 24/11/2026 (sesión 3: fases 4, 5, 6 y 7) · **Avance global: ~66 %**
+**Versión:** 0.6.1 · **Última actualización:** 24/11/2026 (sesión 3: fases 4 a 7 y pase visual) · **Avance global: ~69 %**
 
 El proyecto es ejecutable: se puede registrar, guardar fotos y personajes, crear salas, invitar por código o
 enlace, preparar la partida con amigos y bots y **jugarla en tiempo real**.
@@ -12,6 +12,13 @@ Desde la 0.6:
 - **En el mapa ya no va la foto:** cada participante es un personaje animado.
 - **Los bots piensan:** van al Obelisco o se apartan según su carácter, exploran, acechan a quien creen poder
   vencer y huyen de quien les supera. Ven lo mismo que vería un humano.
+
+Desde la 0.6.1 (pase visual):
+- **El mapa ya no parece un mosaico con pegatinas:** suelo continuo, orillas, ríos y caminos curvos, objetos
+  repartidos sin rejilla con la misma luz y sombras, nítido a cualquier zoom, y luces de noche.
+- **Personajes nuevos** y pestaña **Apariencia** en el editor (piel, peinado, ropa, complementos, complexión).
+- Los objetos del mapa están preparados para sprites pintados con SpriteCook (hojas ya generadas, falta
+  descargarlas a `public/map/`).
 
 Todavía no hay combate en la partida, ni recursos ni eventos (fases 8–9).
 
@@ -27,10 +34,10 @@ Código: [github.com/Aremanky/juego-web-juegos-del-hambre](https://github.com/Ar
 | 4 | Motor multijugador y sincronización de partida | 11 % | **100 %** | ██████████ |
 | 5 | Estadísticas, habilidades y reparto de puntos | 6 % | **100 %** | ██████████ |
 | 6 | Bots autónomos (IA en el servidor y en la GPU del anfitrión) | 11 % | **70 %** | ███████░░░ |
-| 7 | Mapa ilustrado, personajes animados, movimiento y exploración | 14 % | **75 %** | ███████▌░░ |
+| 7 | Mapa ilustrado, personajes animados, movimiento y exploración | 14 % | **85 %** | ████████▌░ |
 | 8 | Recursos, combates, alianzas y traiciones | 11 % | 15 % | █▌░░░░░░░░ |
 | 9 | Eventos dinámicos y progresión | 6 % | 5 % | ▌░░░░░░░░░ |
-| 10 | Interfaz completa, personalización amplia y personaje desde foto | 13 % | 35 % | ███▌░░░░░░ |
+| 10 | Interfaz completa, personalización amplia y personaje desde foto | 13 % | 45 % | ████▌░░░░░ |
 | 11 | Pruebas completas, optimización y errores | 4 % | 50 % | █████░░░░░ |
 | 12 | Despliegue definitivo en Proxmox | 3 % | 60 % | ██████░░░░ |
 
@@ -48,8 +55,9 @@ Notas de reparto:
   Falta comer, beber, fabricar, aliarse, atacar y traicionar (llegan con esos sistemas en la fase 8) y las
   frases de los bots. La parte con modelos en la GPU del anfitrión (chat con lenguaje, red para Experto) es
   opcional: la IA actual cuesta 1 ms por tick en el servidor y no necesita GPU.
-- **F7 (75 %)**: generador completo, regiones y exploración, día y noche con efecto en la visión, mapa
-  ilustrado, holograma y personajes animados con las animaciones de moverse. Faltan las animaciones y estados
+- **F7 (85 %)**: generador completo, regiones y exploración, día y noche con efecto en la visión, mapa
+  ilustrado (rehecho en la 0.6.1: bloques por zoom, objetos con luz y sombra, luces de noche), holograma y
+  personajes animados con las animaciones de moverse. Faltan las animaciones y estados
   de acciones que aún no existen (atacar, buscar, fabricar, herido, envenenado), los cambios del mapa por
   eventos (fase 9) y, si hiciera falta en móviles, pasar el dibujo a PixiJS.
 

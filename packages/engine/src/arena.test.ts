@@ -91,13 +91,20 @@ describe('generador de arena (fase 7)', () => {
     const back = restoreWorld(serializeWorld(w));
     expect(Array.from(back.map.heights)).toEqual(Array.from(w.map.heights));
     expect(back.map.pois).toEqual(w.map.pois);
+    // Recorridos de ríos y caminos para dibujarlos como curvas.
+    expect(back.map.rivers).toEqual(w.map.rivers);
+    expect(back.map.roads).toEqual(w.map.roads);
+    expect(w.map.roads.length).toBeGreaterThan(0);
     const old = serializeWorld(w) as unknown as { map: Record<string, unknown>; actors: Record<string, unknown>[] };
     delete old.map.heights;
     delete old.map.pois;
+    delete old.map.rivers;
+    delete old.map.roads;
     for (const a of old.actors) delete a.explored;
     const legacy = restoreWorld(old as never);
     expect(legacy.map.heights.length).toBe(w.map.size ** 2);
     expect(legacy.map.pois).toEqual([]);
+    expect(legacy.map.roads).toEqual([]);
     run(legacy, 1000); // no descubre nada ni falla sin regiones
     expect(legacy.actors[0].explored).toBe(1);
   });

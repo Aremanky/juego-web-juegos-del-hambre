@@ -336,6 +336,11 @@ combate, resultados y perfil. También sirve para crear el personaje a su imagen
   para el otro lado) y animaciones de reposo, andar, correr, nadar, agacharse en la maleza, caído y
   celebración. El peinado sale del camafeo, la ropa del color del jugador y el ribete del distrito. Atacar,
   buscar, fabricar, comer y los estados llegan con sus acciones en la fase 8.
+- *Hecho en la 0.6.1:* figura nueva de proporciones de juego con sombreado y contorno, y una pestaña
+  **Apariencia** en el editor: piel (8 tonos), 9 peinados, 10 colores de pelo, 6 prendas (túnica, chaqueta,
+  capa, peto, vestido, mono), color de ropa y de ribete, pantalón, complemento (bufanda, mochila, carcaj o
+  cinta), complexión y estatura, con vista previa animada. Lo que no se toca sale del retrato; «Como su
+  retrato» lo devuelve a eso. El camafeo toma el peinado, los colores y el complemento.
 
 **Sistema de personalización (amplio).** La apariencia se guarda como un JSON compacto y versionado
 (piezas + parámetros). El servidor la valida y la usan igual personajes y bots: a un bot se le genera una
@@ -473,9 +478,13 @@ previsualizados. Capas: peligros, recursos conocidos, PDI, eventos. En el mapa s
 animados** (§5.9) con el color del jugador y movimiento interpolado suave; la foto solo aparece en la
 tarjeta y en la interfaz.
 
-*Desde la 0.6* el mapa es el ilustrado: relieve sombreado, curvas de nivel, bosques, rocas, cumbres, ríos y
-caminos continuos, ruinas y poblados, con un botón para el modo holograma (curvas turquesas y retícula de
-sectores A–L por 1–12) y la noche oscureciendo la arena.
+*Desde la 0.6* el mapa es el ilustrado, con un botón para el modo holograma (curvas turquesas y retícula de
+sectores A–L por 1–12) y la noche oscureciendo la arena. *En la 0.6.1* se rehízo el dibujo para que no
+parezca un mosaico con pegatinas: suelo continuo con bordes de bioma naturales, orillas con espuma, ríos y
+caminos curvos, explanada empedrada, árboles y montañas repartidos sin rejilla, casas con su pozo, ruinas,
+cuevas y braseros, todo con la misma luz y sus sombras, nítido a cualquier zoom. De noche se encienden las
+ventanas, los braseros y la brasa del Obelisco. Los objetos pueden usar sprites pintados (SpriteCook) cuando
+están en `public/map/`.
 
 ---
 

@@ -7,13 +7,14 @@ import {
   type AbilityKey, type AttributeKey, type Attributes, type Character, type DerivedInput, type DerivedKey, type DerivedStats, type SituationalKey,
 } from '@ceniza/shared';
 import { StrengthTab } from './StrengthTab';
+import { AppearanceTab, FigurePreview } from './AppearanceTab';
 import { Portrait, Segmented } from '../../components/ui';
 import { PhotoPicker } from '../photos/photoWidgets';
 import { useTemplates } from '../../lib/queries';
 
 const ATTR_NAMES = Object.fromEntries(ATTRIBUTE_KEYS.map((k) => [k, ATTRIBUTES[k].name])) as Record<AttributeKey, string>;
 
-export type EditorTab = 'identidad' | 'atributos' | 'habilidades' | 'estrategia' | 'prueba';
+export type EditorTab = 'identidad' | 'apariencia' | 'atributos' | 'habilidades' | 'estrategia' | 'prueba';
 
 export function CharacterEditor({ value, onChange, budget, mode }: { value: Character; onChange: (c: Character) => void; budget: number; mode: 'template' | 'room' | 'bot' }) {
   const [tab, setTab] = useState<EditorTab>('atributos');
@@ -38,6 +39,7 @@ export function CharacterEditor({ value, onChange, budget, mode }: { value: Char
           {(
             [
               ['identidad', 'Identidad'],
+              ['apariencia', 'Apariencia'],
               ['atributos', 'Atributos'],
               ['habilidades', 'Habilidades y rasgos'],
               ['estrategia', 'Estrategia'],
@@ -51,6 +53,7 @@ export function CharacterEditor({ value, onChange, budget, mode }: { value: Char
         </div>
         <div className="editor-body">
           {tab === 'identidad' && <IdentityTab c={value} set={set} mode={mode} />}
+          {tab === 'apariencia' && <AppearanceTab c={value} set={set} />}
           {tab === 'atributos' && <AttributesTab c={value} onChange={onChange} budget={budget} />}
           {tab === 'habilidades' && <AbilitiesTab c={value} set={set} />}
           {tab === 'estrategia' && <StrategyTab c={value} set={set} />}
@@ -67,20 +70,20 @@ export function CharacterPreview({ c }: { c: Character }) {
   return (
     <div className="preview">
       <div className="preview-card">
-        <Portrait portrait={c.portrait} color={c.color} frame={c.frame} size={112} />
+        <Portrait portrait={c.portrait} look={c.look} color={c.color} frame={c.frame} size={112} />
         <div className="preview-name display">{c.name || 'Sin nombre'}</div>
         {c.epithet && <div className="muted small">{c.epithet}</div>}
         <div className="small faint">{d ? `Distrito ${d.roman}, ${d.name}` : 'Distrito por asignar'}</div>
       </div>
       <div className="preview-map" aria-label="Así se verá en el mapa">
         <span className="preview-marker">
-          <Portrait portrait={c.portrait} color={c.color} frame={c.frame} size={40} />
+          <FigurePreview c={c} size={64} />
           <span className="preview-label">{c.name}</span>
         </span>
       </div>
       <div className="preview-row" aria-label="Así se verá en la clasificación">
         <span className="num faint">1</span>
-        <Portrait portrait={c.portrait} color={c.color} frame="sencillo" size={28} />
+        <Portrait portrait={c.portrait} look={c.look} color={c.color} frame="sencillo" size={28} />
         <span className="preview-row-name">{c.name}</span>
         <span className="display small faint">{d?.roman ?? '—'}</span>
       </div>
@@ -137,7 +140,7 @@ function IdentityTab({ c, set, mode }: { c: Character; set: <K extends keyof Cha
       <div className="field">
         <span>Retrato</span>
         <div className="row">
-          <Portrait portrait={c.portrait} color={c.color} frame={c.frame} size={72} />
+          <Portrait portrait={c.portrait} look={c.look} color={c.color} frame={c.frame} size={72} />
           <button type="button" className="btn" onClick={() => setPicking('portrait')}>
             {mode === 'bot' ? 'Usar una de mis fotos' : 'Elegir de mis fotos'}
           </button>
@@ -178,7 +181,7 @@ function IdentityTab({ c, set, mode }: { c: Character; set: <K extends keyof Cha
         <div className="frames">
           {FRAME_KEYS.map((f) => (
             <button key={f} type="button" className="frame-opt" aria-pressed={c.frame === f} onClick={() => set('frame', f)}>
-              <Portrait portrait={c.portrait} color={c.color} frame={f} size={40} />
+              <Portrait portrait={c.portrait} look={c.look} color={c.color} frame={f} size={40} />
               <span className="small">{FRAME_LABEL[f]}</span>
             </button>
           ))}

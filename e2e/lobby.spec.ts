@@ -59,6 +59,14 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await a.getByLabel('Epíteto (opcional)').fill('el Implacable');
   await a.getByRole('button', { name: 'VII Aserraderos' }).click();
   await shot(a, '06-editor-identidad');
+  // Apariencia en el mapa: peinado, ropa y complemento elegidos a mano.
+  await a.getByRole('tab', { name: 'Apariencia' }).click();
+  await a.getByRole('group', { name: 'Peinado' }).getByRole('button', { name: 'Trenza' }).click();
+  await a.getByRole('group', { name: 'Ropa' }).getByRole('button', { name: 'Capa' }).click();
+  await a.getByRole('group', { name: 'Complemento' }).getByRole('button', { name: 'Carcaj' }).click();
+  await a.getByRole('radio', { name: 'Pelo 9' }).click();
+  await shot(a, '06b-editor-apariencia');
+  await a.locator('.appearance-head').screenshot({ path: `${SHOTS}/06c-figura.png` });
   await a.getByRole('tab', { name: 'Habilidades y rasgos' }).click();
   await shot(a, '07-editor-habilidades');
 
@@ -179,8 +187,14 @@ test('dos amigos preparan una partida juntos en tiempo real', async ({ browser }
   await expect(a.getByRole('button', { name: 'Parar' })).toBeVisible();
   await a.waitForTimeout(700);
   await shot(a, '14-partida-escritorio', false);
+  // De cerca: casas, árboles y personajes con todo su detalle.
+  for (let i = 0; i < 4; i++) await a.getByRole('button', { name: 'Acercar' }).click();
+  await a.waitForTimeout(600);
+  await shot(a, '14b-partida-de-cerca', false);
+  for (let i = 0; i < 4; i++) await a.getByRole('button', { name: 'Alejar' }).click();
   await shot(b, '15-partida-movil');
   await expect(a.getByText(/^Día 1\. Anochece en/)).toBeVisible();
+  await a.waitForTimeout(800);
   // Fotogramas por segundo del mapa con todos los personajes animados (Chrome sin GPU de las pruebas).
   const fps = await a.evaluate(
     () =>

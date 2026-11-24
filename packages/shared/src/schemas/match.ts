@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Portrait } from './character.js';
+import type { Look, Portrait } from './character.js';
 import type { Gender } from '../game/districts.js';
 
 /**
@@ -34,6 +34,8 @@ export interface ActorView {
   color: string;
   frame: string;
   portrait: Portrait;
+  /** Apariencia elegida en el editor (si la hay). */
+  look?: Look | null;
   district: number;
   gender: Gender;
   alive: boolean;
@@ -93,6 +95,9 @@ export interface MatchMapDTO {
   center: { x: number; y: number };
   /** Puntos de interés; cada uno da nombre a su región (la casilla más cercana manda). El 0 es el Obelisco. */
   pois?: PoiDTO[];
+  /** Recorridos de ríos y caminos, cada uno como [x0, y0, x1, y1, …]. */
+  rivers?: number[][];
+  roads?: number[][];
 }
 
 /** Ciclo de día y noche: empieza de día al acabar la cuenta atrás (ms de juego). */

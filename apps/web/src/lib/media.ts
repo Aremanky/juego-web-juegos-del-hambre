@@ -1,9 +1,17 @@
-import { avatarDataUri, photoUrl, type Portrait } from '@ceniza/shared';
+import { HAIR_COLORS, SKIN_TONES, avatarDataUri, photoUrl, type CameoLook, type Look, type Portrait } from '@ceniza/shared';
 
-export function portraitSrc(p: Portrait | null | undefined, color: string, size = 64): string {
+/** Lo del editor de apariencia que también se ve en el camafeo. */
+export function cameoLook(look: Look | null | undefined): CameoLook | null {
+  if (!look) return null;
+  const skin = look.skin != null ? SKIN_TONES[look.skin] : undefined;
+  const hair = look.hairColor != null ? HAIR_COLORS[look.hairColor] : undefined;
+  return { hairStyle: look.hairStyle, skin: skin?.[0], skinShade: skin?.[1], hair: hair?.[0], hairShade: hair?.[1], outfit: look.outfit, trim: look.trim, accessory: look.accessory };
+}
+
+export function portraitSrc(p: Portrait | null | undefined, color: string, size = 64, look?: Look | null): string {
   if (!p) return avatarDataUri('anonimo', color);
   if (p.kind === 'photo') return photoUrl(p.photoId, size > 120 ? 'avatar' : 'marker', p.v);
-  return avatarDataUri(p.seed, color);
+  return avatarDataUri(p.seed, color, cameoLook(look));
 }
 
 export function photoRefSrc(ref: { id: string; v: number } | null | undefined, fallbackSeed: string, size = 64): string {
