@@ -106,19 +106,21 @@ Notas de reparto:
   «Has llegado a…» solo te lo dice a ti. El panel lleva la cuenta de lo descubierto.
 - Día y noche por ritmo de sala (8 + 4 min en Estándar): de noche se ve menos (×0,6 con las ventajas de cada
   personaje), el mapa se oscurece y un reloj indica cuánto falta para el cambio.
-- Mapa ilustrado horneado una vez:
-  - relieve sombreado y curvas de nivel;
-  - árboles, rocas, cumbres nevadas y pantanos;
-  - ríos y caminos continuos, ruinas y poblados;
-  - iconos y rótulos de los lugares conocidos.
+- Mapa ilustrado (rehecho en la 0.6.1), pintado por bloques a la resolución del zoom:
+  - suelo continuo con bordes de bioma naturales y relieve sombreado;
+  - orillas con espuma, ríos que se ensanchan y caminos curvos, explanada empedrada;
+  - árboles, coníferas, rocas, montañas y juncos sin rejilla; casas con pozo, ruinas, cuevas, manantiales y
+    braseros; todo con la misma luz y sombras al sureste;
+  - Obelisco con brasa y pavesas; de noche, ventanas, braseros y brasa encendidos;
+  - rótulos con halo de los lugares conocidos.
   
   El botón «Holograma» cambia a curvas turquesas con la retícula de sectores A–L por 1–12.
 - Personajes animados en lugar de la foto:
-  - esqueleto de piezas con vistas de frente, espalda y lado;
+  - figura de proporciones de juego con sombreado y contorno, vistas de frente, espalda y lado;
   - reposo, andar, correr, nadar, agacharse en la maleza, caído y celebración;
   - anillo del color del jugador, punteado si va con piloto automático;
-  - peinado del camafeo, ropa del color del jugador y ribete del distrito.
-- 55 fps con todo el mapa y los personajes en el Chrome sin GPU de las pruebas.
+  - apariencia elegida en la pestaña Apariencia del editor (o derivada del retrato).
+- 41 fps con todo el mapa y los personajes en el Chrome sin GPU de las pruebas.
 
 **Interfaz e infraestructura**
 - Identidad visual «Ceniza y cristal» en todas las pantallas; revisiones anti-IA sin señales.
@@ -129,14 +131,14 @@ Notas de reparto:
 
 | Suite | Resultado | Cubre |
 |---|---|---|
-| Unitarias (`packages/shared`) | **23/23 ✔** | Reglas de personaje, efectos según la situación, desglose idéntico al motor |
-| Motor (`packages/engine`) | **46/46 ✔** | Las 35 anteriores más 11 nuevas. Del generador: determinista, ríos, caminos hasta cada poblado y ruina, nombres únicos, anillo de salida limpio, instantánea con relieve y compatibilidad con la 0.5. Del día y la noche: ciclo, visión nocturna con niebla y avisos. De la exploración: región descubierta solo para quien entra. De la IA: bots que se mueven solos y determinismo, el agresivo al Obelisco y el cauteloso apartándose, huida y acecho, niebla y olvido del Fácil, y 23 bots por debajo de 5 ms por tick |
+| Unitarias (`packages/shared`) | **27/27 ✔** | Reglas de personaje, efectos según la situación, desglose idéntico al motor; apariencia elegida, su validación y el camafeo con ella |
+| Motor (`packages/engine`) | **46/46 ✔** | Las 35 anteriores más 11 nuevas. Del generador: determinista, ríos, caminos hasta cada poblado y ruina, nombres únicos, anillo de salida limpio, instantánea con relieve, ríos y caminos, y compatibilidad con la 0.5. Del día y la noche: ciclo, visión nocturna con niebla y avisos. De la exploración: región descubierta solo para quien entra. De la IA: bots que se mueven solos y determinismo, el agresivo al Obelisco y el cauteloso apartándose, huida y acecho, niebla y olvido del Fácil, y 23 bots por debajo de 5 ms por tick |
 | Integración (`apps/server`, PostgreSQL real) | **47/47 ✔** | Todo lo anterior más la arena con bots: instantánea con relieve, lugares y ciclo, bots moviéndose con la IA del servidor, aviso de región privado y noche para todos |
 | Carga (`npm run load`, 30 s) | **✔** | 24 humanos, mapa grande con niebla: tick p95 1,9 ms, respuesta p95 4 ms, 6,8 KB/s por jugador |
-| Extremo a extremo (Chrome real) | **1/1 ✔** | Del registro a la partida en escritorio y móvil, ahora con el mapa ilustrado, los personajes, el reloj de día, el holograma, la noche y una medida de 55 fps |
+| Extremo a extremo (Chrome real) | **1/1 ✔** | Del registro a la partida en escritorio y móvil, ahora con el mapa nuevo (también de cerca), la pestaña Apariencia, los personajes, el reloj de día, el holograma, la noche y una medida de 41 fps |
 | Compilación y tipos | ✔ | `tsc` en los 4 paquetes, build de servidor y web |
 | Diseño (unslop-ui y detector de Impeccable) | **0 señales** | Sobre todas las pantallas |
-| Producción | ✔ | Health 0.6.0, SPA y rutas internas, CSP, caché inmutable |
+| Producción | ✔ | Health 0.6.1, SPA y rutas internas (build de servidor y web servido por Fastify) |
 
 ## Skills y plugins instalados para el desarrollo
 
@@ -149,6 +151,7 @@ Notas de reparto:
 | anthropic-art-skills | Arte generativo con código |
 | openai-develop-web-game | Ciclo de pruebas con Playwright para el bucle de partida |
 | Context Compactor, Concise Intuitive Answers | Gastar menos contexto en sesiones largas sin perder precisión |
+| SpriteCook (plugin) | Hojas de sprites pintados para los objetos del mapa (plan gratuito: 40 créditos, quedan 24) |
 
 ## Funcionalidades pendientes
 
@@ -159,16 +162,18 @@ Notas de reparto:
 - **Fase 8:** combate en la partida, medidores de supervivencia, recursos, inventario, fabricación, alianzas y
   traiciones, y que los bots los usen.
 - **Fase 9:** eventos dinámicos y Director, zona segura y progresión.
-- **Fase 10:** pantallas de partida, historial, logros, administración, editor de apariencia amplio y creación
-  del personaje desde una foto con generación de piezas.
+- **Fase 10:** pantallas de partida, historial, logros, administración, ampliar el editor de apariencia (cara,
+  marcas, barba, más prendas) y creación del personaje desde una foto con generación de piezas.
+- **Pase visual:** descargar las dos hojas de SpriteCook a `apps/web/public/map/` y recortarlas con
+  `scripts/slice-sheets.py` (el entorno de Claude no puede descargar de `api.spritecook.ai`).
 - **Fase 12:** validar en tu VM real (systemd, ufw, túnel de Cloudflare con tu dominio).
 
 ## Errores y limitaciones conocidas
 
 - Sin combate en la partida todavía: los bots acechan y huyen, pero nadie ataca. Una partida solo termina por
   abandonos o desconexiones con la regla «eliminar».
-- Los personajes animados se dibujan en el cliente con piezas vectoriales; el editor de apariencia (fase 10)
-  los hará personalizables.
+- Los objetos del mapa se dibujan en vectorial hasta que estén las hojas de SpriteCook en `public/map/`.
+- 41 fps en Chrome sin GPU (antes 55): el escalado filtrado de los bloques del mapa cuesta en software.
 - La IA tiene un pico de unos 60 ms en los primeros ticks de la partida, cuando todos se ven en el anillo.
   Después va en 1 ms de media.
 - La prueba de fuerza tiene un margen de ±5 puntos en cada casilla y de ±2 en las medias.
@@ -188,5 +193,6 @@ Notas de reparto:
 ## Cómo continuar en la próxima sesión
 
 El código está en GitHub. `main` tiene la fase 4. Las ramas van una encima de otra:
-`fase-5-estadisticas` (#2), `fase-4-cierre` (#3) y `fase-6-y-7` (#4). Fusiónalas en ese orden. Al empezar la
+`fase-5-estadisticas` (#2), `fase-4-cierre` (#3), `fase-6-y-7` (#4) y `pase-visual` (#5). Fusiónalas en
+ese orden. Al empezar la
 próxima sesión basta con decir que siga desde el repositorio.
